@@ -69,6 +69,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
     int pageSelected = locator.get<AppState>().currentPage;
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.redAccent,
         title: Text(pageTitles[pageSelected]),
         actions: [
           pageSelected == 0

@@ -295,6 +295,7 @@ class _EventDialog extends StatelessWidget {
               TextSpan(
                 text: 'Selected ',
                 style: const TextStyle(
+                  color: Colors.black,
                   fontSize: 16,
                 ),
                 children: [
@@ -317,6 +318,7 @@ class _EventDialog extends StatelessWidget {
                 text: 'Selected ',
                 style: const TextStyle(
                   fontSize: 16,
+                  color: Colors.black,
                 ),
                 children: [
                   const TextSpan(

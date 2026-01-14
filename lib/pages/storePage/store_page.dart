@@ -309,6 +309,8 @@ class _StorePageState extends State<StorePage> {
 
   @override
   Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    bool isWeb = screenWidth > 800;
     List<StoreItem> sellables = storeItems
         .where((item) => widget.slot.getFurniture(item.item) != null)
         .toList();
@@ -354,12 +356,13 @@ class _StorePageState extends State<StorePage> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: sellables.length,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 5,
-                  mainAxisSpacing: 5,
-                  childAspectRatio: MediaQuery.of(context).size.width /
-                      (MediaQuery.of(context).size.height / 2.5),
-                ),
+                    crossAxisCount: isWeb ? 3 : 2,
+                    crossAxisSpacing: isWeb ? 8 : 5,
+                    mainAxisSpacing: isWeb ? 8: 5,
+                    childAspectRatio: isWeb
+                        ? screenWidth / screenWidth
+                        : MediaQuery.of(context).size.width /
+                            (MediaQuery.of(context).size.height / 2)),
                 itemBuilder: (BuildContext context, int index) {
                   StoreItem item = sellables[index];
                   String? direction =

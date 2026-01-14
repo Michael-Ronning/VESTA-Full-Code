@@ -42,7 +42,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(top: 150),
+            padding: const EdgeInsets.only(top: 50),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -50,7 +50,10 @@ class _HomePageState extends State<HomePage> {
                   event.currentRoom != null
                       ? capitalize(event.currentRoom!.name)
                       : 'Full View',
-                  style: const TextStyle(fontSize: 30),
+                  style: const TextStyle(
+                      fontSize: 30,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.bold),
                 ),
               ],
             ),

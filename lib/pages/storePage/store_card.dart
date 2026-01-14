@@ -23,6 +23,7 @@ class StoreItemCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4.0, 4.0, 16.0, 4.0),
       child: Container(
+       
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),

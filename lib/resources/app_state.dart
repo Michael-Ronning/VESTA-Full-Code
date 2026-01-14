@@ -215,7 +215,7 @@ class AppState with ChangeNotifier {
 
   void calculateEventProgress() {
     _eventProgress = [0, 0];
-    int eventsTotal = 0;
+    int eventsTotal = -2;
     for (var element in sessionRoom!.distinctSlots) {
       eventsTotal += element.setting.delayEvent.length;
       eventsTotal += element.setting.doubleAfterEvent.length;

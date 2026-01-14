@@ -153,7 +153,7 @@ Future<bool?> showConfirmation({
           text != null
               ? Text(
                   text,
-                  style: const TextStyle(fontSize: 20),
+                  style: const TextStyle(fontSize: 20, color: Colors.white),
                 )
               : Container(child: richText),
         ],
@@ -384,10 +384,10 @@ Widget yesOrNo(
               onNo();
             }
           },
-          icon: const Icon(Icons.close, size: 32),
+          icon: const Icon(Icons.close, size: 32, color: Colors.white),
           label: Text(
             noLabel,
-            style: const TextStyle(fontSize: 18),
+            style: const TextStyle(fontSize: 18,color: Colors.white),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red[700],
@@ -411,10 +411,10 @@ Widget yesOrNo(
               onYes();
             }
           },
-          icon: const Icon(Icons.check, size: 32),
+          icon: const Icon(Icons.check, size: 32, color: Colors.white),
           label: Text(
             yesLabel,
-            style: const TextStyle(fontSize: 18),
+            style: const TextStyle(fontSize: 18,color: Colors.white),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green[700],

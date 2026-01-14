@@ -137,8 +137,8 @@ Room bedroom = Room(
         ),
       ],
       setting: const SlotSetting(
-        delayEvent: [2035, 2032],
-        // doubleAfterEvent: [2027],
+        delayEvent: [2035],
+        doubleAfterEvent: [2032],
       ),
     ),
     //Bd2 End tables 1 (done)
@@ -190,7 +190,8 @@ Room bedroom = Room(
       ],
       setting: const SlotSetting(
         overchargeRate: .25,
-        delayEvent: [1000, 1025],
+        delayEvent: [1000],
+        doubleAfterEvent: [1025],
       ),
     ),
     //Bd2 End tables 2 (done)
@@ -242,7 +243,7 @@ Room bedroom = Room(
       ],
       setting: const SlotSetting(
         overchargeRate: .25,
-        //doubleAfterEvent: [1000, 1025],
+        delayEvent: [],
       ),
     ),
     // //Bd3 center (done)
@@ -345,7 +346,8 @@ Room bedroom = Room(
         ),
       ],
       setting: const SlotSetting(
-        delayEvent: [1023, 2000],
+        delayEvent: [1023],
+        doubleAfterEvent: [2000],
         randomItem: StoreItem(
           name: 'Automated DVD and Blue Ray Disk Organizer',
           price: 299.95,
@@ -404,7 +406,8 @@ Room bedroom = Room(
         ),
       ],
       setting: const SlotSetting(
-        delayEvent: [1007, 2020],
+        delayEvent: [1007],
+        doubleAfterEvent: [2020],
         wrongSlotItem: true,
       ),
     ),
@@ -449,7 +452,8 @@ Room bedroom = Room(
         ),
       ],
       setting: const SlotSetting(
-        delayEvent: [1018, 2033],
+        delayEvent: [1018],
+        doubleAfterEvent: [2030],
         overchargeRate: .5,
       ),
     ),
@@ -591,6 +595,8 @@ Room bedroom = Room(
         ),
       ],
       setting: const SlotSetting(
+        delayEvent: [],
+        doubleAfterEvent: [],
         randomItem: StoreItem(
           name: 'SMART Automated Door Opening System',
           seller: Seller.ellesElectronicEclectics,
@@ -601,7 +607,7 @@ Room bedroom = Room(
     //Bd10 Wall 2 (done)
     Slot(
       id: 'Bd10',
-      order: 5,
+      order: 6,
       height: 40,
       icon: 'OUTLINE_wall_NE',
       left: 100,
@@ -645,11 +651,8 @@ Room bedroom = Room(
         ),
       ],
       setting: const SlotSetting(
-        delayEvent: [
-          1019,
-          2018,
-        ],
-        // doubleAfterEvent: [],
+        delayEvent: [2018],
+        doubleAfterEvent: [2021, 2024],
       ),
     ),
     // //Bd11
@@ -726,7 +729,7 @@ Room livingroom = Room(
       right: 230,
       height: 60,
     ),
-    // LR4 (done)
+    // LR4_center (done)
     Slot(
       id: 'LR4',
       order: 0,
@@ -775,7 +778,7 @@ Room livingroom = Room(
         overchargeRate: .5,
       ),
     ),
-    // LR1 (done)
+    // LR1_sofa (done)
     Slot(
       id: 'LR1',
       order: 1,
@@ -820,13 +823,9 @@ Room livingroom = Room(
       ],
       left: 60,
       right: 140,
-      setting: const SlotSetting(
-        delayEvent: [
-          1016,
-        ],
-      ),
+      setting: const SlotSetting(),
     ),
-    // LR6 (done)
+    // LR6_end_table (done)
     Slot(
       id: 'LR6',
       order: 2,
@@ -869,10 +868,11 @@ Room livingroom = Room(
       right: 115,
       setting: const SlotSetting(
         wrongSlotItem: true,
-        delayEvent: [1030, 1026],
+        //delayEvent: [1030],
+        //doubleAfterEvent: [1026],
       ),
     ),
-    // LR2 (done)
+    // LR2_loveseat (done)
     Slot(
       id: 'LR2',
       order: 3,
@@ -924,59 +924,61 @@ Room livingroom = Room(
       right: 95,
       setting: const SlotSetting(
         overchargeRate: .25,
-        delayEvent: [2005, 2011, 2014],
-        //doubleAfterEvent: [2011, 2015],
-      ),
-    ), // LR9
-    Slot(
-      id: 'LR9',
-      order: 4,
-      height: 60,
-      icon: 'OUTLINE_tv',
-      left: 215,
-      right: 160,
-      acceptables: const [
-        Furniture(
-          name: 'box_tv',
-          direction: Direction.se,
-          height: 60,
-          left: 220,
-          right: 155,
-        ),
-        Furniture(
-          name: 'vintage_tv',
-          direction: Direction.se,
-          height: 65,
-          left: 210,
-          right: 170,
-        ),
-        Furniture(
-          name: 'modern_tv',
-          direction: Direction.se,
-          height: 70,
-          left: 215,
-          right: 160,
-        ),
-        Furniture(
-          name: 'gaming_tv',
-          direction: Direction.se,
-          height: 75,
-          left: 210,
-          right: 150,
-        ),
-        Furniture(
-          name: 'mounted_vr_tv',
-          direction: Direction.se,
-          height: 80,
-          left: 205,
-          right: 145,
-        ),
-      ],
-      setting: const SlotSetting(
-        scamStoreDuplicate: true,
-        delayEvent: [2006, 2012],
+        delayEvent: [2011],
+        doubleAfterEvent: [2015],
       ),
     ),
+    // // LR9
+    // Slot(
+    //   id: 'LR9',
+    //   order: 4,
+    //   height: 60,
+    //   icon: 'OUTLINE_tv',
+    //   left: 215,
+    //   right: 160,
+    //   acceptables: const [
+    //     Furniture(
+    //       name: 'box_tv',
+    //       direction: Direction.se,
+    //       height: 60,
+    //       left: 220,
+    //       right: 155,
+    //     ),
+    //     Furniture(
+    //       name: 'vintage_tv',
+    //       direction: Direction.se,
+    //       height: 65,
+    //       left: 210,
+    //       right: 170,
+    //     ),
+    //     Furniture(
+    //       name: 'modern_tv',
+    //       direction: Direction.se,
+    //       height: 70,
+    //       left: 215,
+    //       right: 160,
+    //     ),
+    //     Furniture(
+    //       name: 'gaming_tv',
+    //       direction: Direction.se,
+    //       height: 75,
+    //       left: 210,
+    //       right: 150,
+    //     ),
+    //     Furniture(
+    //       name: 'mounted_vr_tv',
+    //       direction: Direction.se,
+    //       height: 80,
+    //       left: 205,
+    //       right: 145,
+    //     ),
+    //   ],
+    //   setting: const SlotSetting(
+    //     scamStoreDuplicate: true,
+    //     delayEvent: [2006],
+    //     doubleAfterEvent: [2012],
+    //   ),
+    // ),
     // // LR3 (done)
     // Slot(
     //   id: 'LR3',
@@ -1032,7 +1034,7 @@ Room livingroom = Room(
     // LR5 (done)
     Slot(
       id: 'LR5',
-      order: 5,
+      order: 4,
       height: 50,
       icon: 'OUTLINE_wall_NE',
       acceptables: const [
@@ -1080,55 +1082,56 @@ Room livingroom = Room(
       left: 120,
       right: 50,
       setting: const SlotSetting(
-        delayEvent: [2007, 2003],
+        delayEvent: [2007],
+        doubleAfterEvent: [2003],
       ),
     ),
 
-    // LR7 (done)
-    Slot(
-      id: 'LR7',
-      order: 6,
-      height: 55,
-      icon: 'OUTLINE_tall',
-      acceptables: const [
-        Furniture(
-          name: 'potted_palm',
-          height: 40,
-          left: 55,
-          right: 265,
-        ),
-        Furniture(
-          name: 'model_plane_display',
-          height: 50,
-          left: 57,
-          right: 267,
-        ),
-        Furniture(
-          name: 'classic_standing_lamp',
-          height: 55,
-          left: 40,
-          right: 275,
-        ),
-        Furniture(
-          name: 'antique_table_vase',
-          height: 45,
-          left: 55,
-          right: 270,
-        ),
-        Furniture(
-          name: 'marble_statue',
-          height: 60,
-          left: 35,
-          right: 265,
-        ),
-      ],
-      left: 40,
-      right: 270,
-    ),
-    // LR8 (done)
+    // // LR7 (done)
+    // Slot(
+    //   id: 'LR7',
+    //   order: 6,
+    //   height: 55,
+    //   icon: 'OUTLINE_tall',
+    //   acceptables: const [
+    //     Furniture(
+    //       name: 'potted_palm',
+    //       height: 40,
+    //       left: 55,
+    //       right: 265,
+    //     ),
+    //     Furniture(
+    //       name: 'model_plane_display',
+    //       height: 50,
+    //       left: 57,
+    //       right: 267,
+    //     ),
+    //     Furniture(
+    //       name: 'classic_standing_lamp',
+    //       height: 55,
+    //       left: 40,
+    //       right: 275,
+    //     ),
+    //     Furniture(
+    //       name: 'antique_table_vase',
+    //       height: 45,
+    //       left: 55,
+    //       right: 270,
+    //     ),
+    //     Furniture(
+    //       name: 'marble_statue',
+    //       height: 60,
+    //       left: 35,
+    //       right: 265,
+    //     ),
+    //   ],
+    //   left: 40,
+    //   right: 270,
+    // ),
+    // LR8_C2 (done)
     Slot(
       id: 'LR8',
-      order: 7,
+      order: 5,
       height: 55,
       icon: 'OUTLINE_tall',
       acceptables: const [
@@ -1167,77 +1170,77 @@ Room livingroom = Room(
       left: 38,
       right: 55,
       setting: const SlotSetting(
-        delayEvent: [1020, 2008, 1005, 2005],
-        // doubleAfterEvent: [],
         randomItem: StoreItem(
           name: 'Automated Litter Box',
           price: 699.99,
           seller: Seller.jiaHuisFurnitureDepot,
         ),
+        delayEvent: [1020],
+        doubleAfterEvent: [2008, 1005],
       ),
     ),
 
-    // LR10 (done)
-    Slot(
-      id: 'LR10',
-      order: 8,
-      height: 40,
-      icon: 'OUTLINE_wall_NW',
-      acceptables: const [
-        Furniture(
-          name: 'live_laugh_love',
-          direction: Direction.nw,
-          layer: Layer.back,
-          left: 10,
-          right: 130,
-          height: 30,
-        ),
-        Furniture(
-          name: 'canyon_print',
-          direction: Direction.nw,
-          layer: Layer.back,
-          left: 5,
-          right: 130,
-          height: 50,
-        ),
-        Furniture(
-          name: 'rob_boss_painting',
-          direction: Direction.nw,
-          layer: Layer.back,
-          left: 10,
-          right: 130,
-          height: 50,
-        ),
-        Furniture(
-          name: 'modern_wall_art',
-          direction: Direction.nw,
-          layer: Layer.back,
-          left: 0,
-          right: 120,
-          height: 65,
-        ),
-        Furniture(
-          name: 'antique_impressionist_painting',
-          direction: Direction.nw,
-          layer: Layer.back,
-          left: 5,
-          right: 130,
-          height: 50,
-        ),
-      ],
-      setting: const SlotSetting(
-        delayEvent: [1020, 2008, 1005, 2005],
-        doubleCharge: true,
-        //doubleAfterEvent: [],
-        randomItem: StoreItem(
-          name: 'Bear Statue',
-          seller: Seller.donsPawnshop,
-          price: 899.99,
-        ),
-      ),
-      left: 10,
-      right: 130,
-    ),
+    // // LR10 (done)
+    // Slot(
+    //   id: 'LR10',
+    //   order: 8,
+    //   height: 40,
+    //   icon: 'OUTLINE_wall_NW',
+    //   acceptables: const [
+    //     Furniture(
+    //       name: 'live_laugh_love',
+    //       direction: Direction.nw,
+    //       layer: Layer.back,
+    //       left: 10,
+    //       right: 130,
+    //       height: 30,
+    //     ),
+    //     Furniture(
+    //       name: 'canyon_print',
+    //       direction: Direction.nw,
+    //       layer: Layer.back,
+    //       left: 5,
+    //       right: 130,
+    //       height: 50,
+    //     ),
+    //     Furniture(
+    //       name: 'rob_boss_painting',
+    //       direction: Direction.nw,
+    //       layer: Layer.back,
+    //       left: 10,
+    //       right: 130,
+    //       height: 50,
+    //     ),
+    //     Furniture(
+    //       name: 'modern_wall_art',
+    //       direction: Direction.nw,
+    //       layer: Layer.back,
+    //       left: 0,
+    //       right: 120,
+    //       height: 65,
+    //     ),
+    //     Furniture(
+    //       name: 'antique_impressionist_painting',
+    //       direction: Direction.nw,
+    //       layer: Layer.back,
+    //       left: 5,
+    //       right: 130,
+    //       height: 50,
+    //     ),
+    //   ],
+    //   setting: const SlotSetting(
+    //     delayEvent: [1005],
+    //     doubleCharge: true,
+    //     doubleAfterEvent: [2005],
+    //     randomItem: StoreItem(
+    //       name: 'Bear Statue',
+    //       seller: Seller.donsPawnshop,
+    //       price: 899.99,
+    //     ),
+    //   ),
+    //   left: 10,
+    //   right: 130,
+    // ),
     // // LR11 (done)
     // Slot(
     //   id: 'LR11',
@@ -1581,7 +1584,7 @@ Room kitchen = Room(
     //   ),
     // ),
 
-    // K1
+    // K1_cabinets
     Slot(
       id: 'K1',
       order: 0,
@@ -1627,10 +1630,11 @@ Room kitchen = Room(
         ),
       ],
       setting: const SlotSetting(
-        delayEvent: [2004, 2022],
+        delayEvent: [2004],
+        doubleAfterEvent: [2022],
       ),
     ),
-    // K4
+    // K4_oven
     Slot(
       id: 'K4',
       order: 1,
@@ -1679,51 +1683,51 @@ Room kitchen = Room(
         overchargeRate: .5,
       ),
     ),
-    // K7
-    Slot(
-      id: 'K7',
-      order: 2,
-      icon: 'OUTLINE_box',
-      left: 48,
-      right: 137,
-      height: 25,
-      acceptables: [
-        const Furniture(
-          name: 'toaster',
-          height: 20,
-          left: 57,
-          right: 140,
-        ),
-        const Furniture(
-          name: 'ceramic_canisters',
-          height: 20,
-          left: 55,
-          right: 137,
-        ),
-        const Furniture(
-          name: 'spice_rack',
-          height: 20,
-          left: 55,
-          right: 138,
-        ),
-        const Furniture(
-          name: 'texas_waffle_maker',
-          left: 65,
-          right: 144,
-          height: 12,
-        ),
-        const Furniture(
-          name: 'air_fryer',
-          left: 52,
-          right: 137,
-          height: 24,
-        ),
-      ],
-    ),
+    // // K7
+    // Slot(
+    //   id: 'K7',
+    //   order: 3,
+    //   icon: 'OUTLINE_box',
+    //   left: 48,
+    //   right: 137,
+    //   height: 25,
+    //   acceptables: [
+    //     const Furniture(
+    //       name: 'toaster',
+    //       height: 20,
+    //       left: 57,
+    //       right: 140,
+    //     ),
+    //     const Furniture(
+    //       name: 'ceramic_canisters',
+    //       height: 20,
+    //       left: 55,
+    //       right: 137,
+    //     ),
+    //     const Furniture(
+    //       name: 'spice_rack',
+    //       height: 20,
+    //       left: 55,
+    //       right: 138,
+    //     ),
+    //     const Furniture(
+    //       name: 'texas_waffle_maker',
+    //       left: 65,
+    //       right: 144,
+    //       height: 12,
+    //     ),
+    //     const Furniture(
+    //       name: 'air_fryer',
+    //       left: 52,
+    //       right: 137,
+    //       height: 24,
+    //     ),
+    //   ],
+    // ),
     // K2
     Slot(
       id: 'K2',
-      order: 3,
+      order: 2,
       icon: 'OUTLINE_fridge',
       left: 25,
       right: 160,
@@ -1761,16 +1765,13 @@ Room kitchen = Room(
         ),
       ],
       setting: const SlotSetting(
-        delayEvent: [
-          1033,
-        ], //1022],
         overchargeRate: 0.25,
       ),
     ),
     // K6
     Slot(
       id: 'K6',
-      order: 4,
+      order: 3,
       icon: 'OUTLINE_kitchen_island',
       left: 120,
       right: 130,
@@ -1811,53 +1812,53 @@ Room kitchen = Room(
         wrongSlotItem: true,
         delayEvent: [
           1035,
-        ], //1006],
+        ],
       ),
     ),
-    // K5
-    Slot(
-      id: 'K5',
-      order: 5,
-      icon: 'OUTLINE_box',
-      left: 99,
-      right: 65,
-      height: 35,
-      acceptables: [
-        const Furniture(
-          name: 'round_sink',
-          height: 34,
-          left: 106,
-          right: 67,
-        ),
-        const Furniture(
-          name: 'stainless_steel_sink',
-          height: 34,
-          left: 106,
-          right: 67,
-        ),
-        const Furniture(
-          name: 'black_double_sink',
-          height: 37,
-          left: 108,
-          right: 64,
-        ),
-        const Furniture(
-          name: 'platinum_double_sink',
-          height: 38,
-          left: 109,
-          right: 63,
-        ),
-        const Furniture(
-          name: 'luxury_marble_sink',
-          height: 34,
-          left: 106,
-          right: 67,
-        ),
-      ],
-      setting: const SlotSetting(
-        delayEvent: [1013, 1028, 1029],
-      ),
-    ),
+    // // K5
+    // Slot(
+    //   id: 'K5',
+    //   order: 5,
+    //   icon: 'OUTLINE_box',
+    //   left: 99,
+    //   right: 65,
+    //   height: 35,
+    //   acceptables: [
+    //     const Furniture(
+    //       name: 'round_sink',
+    //       height: 34,
+    //       left: 106,
+    //       right: 67,
+    //     ),
+    //     const Furniture(
+    //       name: 'stainless_steel_sink',
+    //       height: 34,
+    //       left: 106,
+    //       right: 67,
+    //     ),
+    //     const Furniture(
+    //       name: 'black_double_sink',
+    //       height: 37,
+    //       left: 108,
+    //       right: 64,
+    //     ),
+    //     const Furniture(
+    //       name: 'platinum_double_sink',
+    //       height: 38,
+    //       left: 109,
+    //       right: 63,
+    //     ),
+    //     const Furniture(
+    //       name: 'luxury_marble_sink',
+    //       height: 34,
+    //       left: 106,
+    //       right: 67,
+    //     ),
+    //   ],
+    //   setting: const SlotSetting(
+    //     delayEvent: [1013, 1028, 1029],
+    //   ),
+    // ),
     // K11
     Slot(
       id: 'K11',
@@ -2993,12 +2994,8 @@ String matchingIdwithDoc(id) {
     case 'LR6':
       return 'LR2';
     case 'LR2':
-      return 'LR9';
-    case 'LR9':
       return 'LR5';
     case 'LR5':
-      return 'LR7';
-    case 'LR7':
       return 'LR8';
     case 'LR8':
       return 'LR4';
