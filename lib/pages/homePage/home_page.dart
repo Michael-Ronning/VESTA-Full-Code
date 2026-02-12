@@ -25,7 +25,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     AppState event = locator.get<AppState>();
     FloorPlan homeLayout = FloorPlan(callback);
-
+    
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 255, 230, 230),
       body: Stack(
