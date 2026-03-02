@@ -16,9 +16,14 @@ import 'package:projectmercury/resources/auth_methods.dart';
 
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({Key? key}) : super(key: key);
+  static const routeName = '/navigation';
 
   @override
-  State<NavigationScreen> createState() => _NavigationScreenState();
+  State<NavigationScreen> createState() { 
+        print('Creating NavigationScreen state');
+        return _NavigationScreenState();
+
+  }
 }
 
 class _NavigationScreenState extends State<NavigationScreen> {
@@ -52,6 +57,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
   @override
   void initState() {
     super.initState();
+    print('NavigationScreen initState called');
     locator.get<FirestoreMethods>().initializeSubscriptions();
     _timer.start();
   }
@@ -65,7 +71,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Navigator.canPop(context) ? Navigator.pop(context) : null;
     int pageSelected = locator.get<AppState>().currentPage;
     return Scaffold(
       appBar: AppBar(
