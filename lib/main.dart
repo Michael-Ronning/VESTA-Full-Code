@@ -10,6 +10,8 @@ import 'package:projectmercury/resources/locator.dart';
 import 'package:projectmercury/screens/welcome_screen.dart';
 import 'package:projectmercury/screens/navigation_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:projectmercury/screens/results_screen.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,7 +60,10 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: StreamBuilder(
+      
+      home: const ResultsScreen(),
+
+ /*     home: StreamBuilder(
         // listen to authentication changes
         stream: auth.userStream,
         builder: (context, snapshot) {
@@ -87,7 +92,7 @@ class MyApp extends StatelessWidget {
           analytics.setCurrentScreen('/login');
           return const WelcomeScreen();
         },
-      ),
+      ), */
     );
   }
 }
