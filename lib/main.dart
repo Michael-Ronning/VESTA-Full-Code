@@ -10,7 +10,8 @@ import 'package:projectmercury/resources/locator.dart';
 import 'package:projectmercury/screens/welcome_screen.dart';
 import 'package:projectmercury/screens/first_time_screen.dart';
 import 'package:provider/provider.dart';
-
+import 'package:projectmercury/screens/results_screen.dart';
+import 'package:projectmercury/screens/navigation_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -49,51 +50,48 @@ class MyApp extends StatelessWidget {
           outlinedButtonTheme: OutlinedButtonThemeData(
             style: ButtonStyle(
               backgroundColor: WidgetStateProperty.all(color.primary),
-              foregroundColor: WidgetStateProperty.all(color.onPrimary),
-            ),
-          ),
-          appBarTheme: AppBarTheme(
-            centerTitle: true,
-            titleTextStyle: TextStyle(
-              fontSize: 36,
-              color: color.onPrimary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+              foregroundColor: WidgetStateProperty.all(color.onPrimary)),
         ),
-        home: StreamBuilder(
-          // listen to authentication changes
-          stream: auth.userStream,
-          builder: (context, snapshot) {
-            // return nav screen if user logged in
-            if (snapshot.connectionState == ConnectionState.active) {
-              if (snapshot.hasData) {
-                // Move these to a post-frame callback to avoid issues
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  firestore.initializeData(auth.currentUser);
-                  analytics.setCurrentScreen('/first-time');
-                });
-                return const FirstTimeScreen();
-              } else if (snapshot.hasError) {
-                return Center(
-                  child: Text('${snapshot.error}'),
-                );
-              }
-            }
-            // return indicator if loading
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            }
-            // return login screen if user not logged in
-            print("login failed");
-            analytics.setCurrentScreen('/login');
-            return const WelcomeScreen();
-          },
+        appBarTheme: AppBarTheme(
+          centerTitle: true,
+          titleTextStyle: TextStyle(
+            fontSize: 36,
+            color: color.onPrimary,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
-    );
+      home: StreamBuilder(
+        // listen to authentication changes
+        stream: auth.userStream,
+        builder: (context, snapshot) {
+          // return nav screen if user logged in
+          if (snapshot.connectionState == ConnectionState.active) {
+            if (snapshot.hasData) {
+              firestore.initializeData(auth.currentUser);
+              analytics.setCurrentScreen('/home');
+              return ChangeNotifierProvider.value(
+                value: locator.get<AppState>(),
+                child: const FirstTimeScreen(),
+              );
+            } else if (snapshot.hasError) {
+              return Center(
+                child: Text('${snapshot.error}'),
+              );
+            }
+          }
+          // return indicator if loading
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+          // return login screen if user not logged in
+          analytics.setCurrentScreen('/login');
+          return const WelcomeScreen();
+        },
+      ),
+    ));
   }
 }
 
