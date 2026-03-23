@@ -10,6 +10,7 @@ class User {
   String? email;
   int txnCnt;
   int evntCnt;
+  int mocaCnt;
   User({
     required this.id,
     this.currDataId,
@@ -19,6 +20,7 @@ class User {
     this.email,
     this.txnCnt = 0,
     this.evntCnt = 0,
+    this.mocaCnt = 0,
   });
 
   Map<String, dynamic> toJson() {
@@ -31,6 +33,7 @@ class User {
       'email': email,
       'txnCnt': txnCnt,
       'evntCnt': evntCnt,
+      'MOCA_CNT': mocaCnt,
     });
   }
 
@@ -44,6 +47,7 @@ class User {
       session: snap['session'] ?? 1,
       txnCnt: snap['TXN_CNT'] ?? 0,
       evntCnt: snap['EVNT_CNT'] ?? 0,
+      mocaCnt: snap['MOCA_CNT'] ?? 0,
     );
   }
 

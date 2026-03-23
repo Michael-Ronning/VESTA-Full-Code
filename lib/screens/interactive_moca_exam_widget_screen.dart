@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:projectmercury/resources/firestore_methods.dart';
+import 'package:projectmercury/resources/locator.dart';
 
 class InteractiveMoCAExamWidget extends StatefulWidget {
   const InteractiveMoCAExamWidget({super.key});
@@ -14,6 +16,8 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   int _currentSection = 0;
   int _totalScore = 0;
   bool _examComplete = false;
+  bool _isSavingResult = false;
+  String? _saveError;
   
   final List<String> trailSeq = ['1', 'A', '2', 'B', '3', 'C', '4', 'D', '5', 'E'];
   List<String> completedTrails = [];
@@ -55,6 +59,12 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     'The cat always hid under the couch when dogs were in the room.'
   ];
   int sentencePts = 0;
+
+  Timer? memoryTimer;
+  bool memoryStarted = false;
+  bool memoryComplete = false;
+  int memoryWordIndex = -1;
+  bool memoryShowingGap = false;
   
   List<String> fluencyList = [];
   int timeLeft = 60;
@@ -82,6 +92,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   void dispose() {
     vigTimer?.cancel();
     fluencyTmr?.cancel();
+    memoryTimer?.cancel();
     super.dispose();
   }
 
@@ -105,15 +116,67 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     _totalScore = score;
   }
 
-  void _goNext() {
-    setState(() {
-      if (_currentSection < 12) {
+  Future<void> _goNext() async {
+    if (_currentSection < 12) {
+      setState(() {
         _currentSection++;
-      } else {
-        _calcScore();
-        _examComplete = true;
-      }
+      });
+      return;
+    }
+
+    if (_isSavingResult) {
+      return;
+    }
+
+    setState(() {
+      _isSavingResult = true;
+      _saveError = null;
+      _calcScore();
     });
+
+    try {
+      await locator.get<FirestoreMethods>().submitMocaResult(
+        totalScore: _totalScore,
+        sectionScores: _buildSectionScores(),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _examComplete = true;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _saveError = 'Failed to save MoCA result. Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingResult = false;
+        });
+      }
+    }
+  }
+
+  Map<String, int> _buildSectionScores() {
+    return {
+      'trail': trailsPassed ? 1 : 0,
+      'cube': cubePassed ? 1 : 0,
+      'clock': clockPts,
+      'naming': namingPts,
+      'digitFwd': fwdOk ? 1 : 0,
+      'digitBwd': bwdOk ? 1 : 0,
+      'vigilance': vigErrs <= 2 ? 1 : 0,
+      'serial7': s7pts,
+      'sentence': sentencePts,
+      'fluency': fluencyList.length >= 11 ? 1 : 0,
+      'abstract': abstractPts,
+      'recall': recallPts,
+      'orientation': orientPts,
+    };
   }
 
   void _goBack() {
@@ -443,6 +506,38 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     setState(() => namingPts = pts);
   }
 
+  void _startMemoryPresentation() {
+    memoryTimer?.cancel();
+    setState(() {
+      memoryStarted = true;
+      memoryComplete = false;
+      memoryWordIndex = 0;
+      memoryShowingGap = false;
+    });
+
+    memoryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      setState(() {
+        if (!memoryShowingGap) {
+          memoryShowingGap = true;
+        } else if (memoryWordIndex < memWords.length - 1) {
+          memoryWordIndex++;
+          memoryShowingGap = false;
+        } else {
+          memoryStarted = false;
+          memoryComplete = true;
+          memoryWordIndex = -1;
+          memoryShowingGap = false;
+          timer.cancel();
+        }
+      });
+    });
+  }
+
   Widget _memorySection() {
     return Column(
       children: [
@@ -457,22 +552,47 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-        ...memWords.map((w) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Container(
-            padding: const EdgeInsets.all(20),
+        if (!memoryStarted && !memoryComplete) ...[
+          _largeBtn('I\'m Ready', _startMemoryPresentation, ico: Icons.play_arrow),
+        ] else if (memoryStarted &&
+            memoryWordIndex >= 0 &&
+            memoryWordIndex < memWords.length) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
               color: Colors.blue[100],
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.blue, width: 2),
             ),
             child: Text(
-              w,
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              memoryShowingGap ? '' : memWords[memoryWordIndex],
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
           ),
-        )),
+          const SizedBox(height: 12),
+          Text(
+            memoryShowingGap
+                ? 'Pause'
+                : 'Word ${memoryWordIndex + 1} of ${memWords.length}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+        ] else if (memoryComplete) ...[
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.green[100],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green, width: 2),
+            ),
+            child: const Text(
+              'Word presentation complete. Continue when ready.',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(16),
@@ -1205,6 +1325,11 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                     vigErrs = 0;
                     vigMiss = 0;
                     vigDone = false;
+                    memoryTimer?.cancel();
+                    memoryStarted = false;
+                    memoryComplete = false;
+                    memoryWordIndex = -1;
+                    memoryShowingGap = false;
                     s7answers.clear();
                     s7pts = 0;
                     sentencePts = 0;
@@ -1351,9 +1476,12 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                         child: Padding(
                           padding: EdgeInsets.only(left: _currentSection > 0 ? 8 : 0),
                           child: _largeBtn(
-                            _currentSection == 12 ? 'Finish' : 'Next',
-                            _goNext,
+                            _currentSection == 12
+                                ? (_isSavingResult ? 'Saving...' : 'Finish')
+                                : 'Next',
+                            () => _goNext(),
                             bg: Colors.green,
+                            active: !_isSavingResult,
                             ico: _currentSection == 12 ? Icons.check : Icons.arrow_forward,
                           ),
                         ),
@@ -1361,6 +1489,18 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                     ],
                   ),
                 ),
+                if (_saveError != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Text(
+                      _saveError!,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
               ],
             ),
     );

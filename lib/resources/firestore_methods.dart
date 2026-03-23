@@ -42,6 +42,9 @@ class FirestoreMethods {
         if (lastUserData!.evntCnt != event.evntCnt) {
           locator.get<AppState>().evntCnt = event.evntCnt;
         }
+        if (lastUserData!.mocaCnt != event.mocaCnt) {
+          locator.get<AppState>().mocaCnt = event.mocaCnt;
+        }
         if (lastUserData!.session != event.session) {
           locator.get<AppState>().onSessionChanged(event.session);
         }
@@ -52,6 +55,7 @@ class FirestoreMethods {
         locator.get<AppState>().currDataId = event.currDataId;
         locator.get<AppState>().txnCnt = event.txnCnt;
         locator.get<AppState>().evntCnt = event.evntCnt;
+        locator.get<AppState>().mocaCnt = event.mocaCnt;
         locator.get<AppState>().onSessionChanged(event.session);
         locator.get<AppState>().onBalanceChanged(event.balance);
       }
@@ -129,6 +133,10 @@ class FirestoreMethods {
           '1_${name}_bal': depositAmount[0],
         })
       });
+      await _firestoreService.updateDocument(
+        path: FirestorePath.user(),
+        data: {'TXN_CNT': 0, 'EVNT_CNT': 0, 'MOCA_CNT': 0},
+      );
       await addTransaction(initialTransaction(), batch);
     }
     batch.commit();
@@ -145,6 +153,10 @@ class FirestoreMethods {
         balance: 0,
         session: 1,
       ),
+    );
+    _firestoreService.updateDocument(
+      path: FirestorePath.user(),
+      data: {'TXN_CNT': 0, 'EVNT_CNT': 0, 'MOCA_CNT': 0},
     );
     _firestoreService.deleteCollection(path: FirestorePath.items());
     _firestoreService.deleteCollection(path: FirestorePath.transactions());
@@ -371,6 +383,121 @@ class FirestoreMethods {
     // ── Final commit ──
     await Future.delayed(
         const Duration(milliseconds: 150), () => batch.commit());
+  }
+
+  Future<void> submitMocaResult({
+    required int totalScore,
+    required Map<String, int> sectionScores,
+  }) async {
+    final fs = _firestoreService;
+    final app = locator.get<AppState>();
+    final auth = locator.get<AuthMethods>();
+    final DateTime time = DateTime.now();
+    final int session = app.session;
+
+    String? dataId = app.currDataId;
+    if (dataId == null) {
+      String name = '${getRoomInit(app.rooms[0].name)}_Start';
+      dataId = await fs.addDocument(
+        path: FirestorePath.newData(),
+        data: {
+          '0_User_Id': auth.uid,
+          '0_Email': auth.currentUser.email,
+          '1_${name}_time': time,
+          '1_${name}_bal': depositAmount[0],
+        },
+      );
+      await fs.updateDocument(
+        path: FirestorePath.user(),
+        data: {'currDataId': dataId},
+      );
+      app.currDataId = dataId;
+    }
+
+    final int attempt = app.mocaCnt ?? 0;
+    final String mocaKey = 'MOCA_M$attempt';
+    final Map<String, dynamic> payload = {
+      '${session}_${mocaKey}_time': time,
+      '${session}_${mocaKey}_session': session,
+      '${session}_${mocaKey}_userId': auth.uid,
+      '${session}_${mocaKey}_total': totalScore,
+      '${session}_${mocaKey}_class':
+          totalScore >= 26 ? 'normal' : 'needs_followup',
+    };
+
+    sectionScores.forEach((key, value) {
+      payload['${session}_${mocaKey}_$key'] = value;
+    });
+
+    await fs.updateDocument(
+      path: FirestorePath.newDataRow(dataId),
+      data: payload,
+    );
+
+    await fs.updateDocument(
+      path: FirestorePath.user(),
+      data: {'MOCA_CNT': FieldValue.increment(1)},
+    );
+
+    app.mocaCnt = attempt + 1;
+  }
+
+  // DEBUG ONLY: Remove before committing to production.
+  Future<Map<String, dynamic>?> getLatestMocaDebugData() async {
+    final app = locator.get<AppState>();
+    final String? dataId = app.currDataId;
+    if (dataId == null || dataId.isEmpty) {
+      return null;
+    }
+
+    final String dataPath = FirestorePath.newDataRow(dataId);
+    final bool exists = await _firestoreService.documentExists(path: dataPath);
+    if (!exists) {
+      return null;
+    }
+
+    final Map<String, dynamic> row =
+        await _firestoreService.documentFuture<Map<String, dynamic>>(
+      path: dataPath,
+      builder: (data) => data,
+    );
+
+    final RegExp keyPattern = RegExp(r'^(\d+)_MOCA_M(\d+)_(.+)$');
+    int latestAttempt = -1;
+    int latestSession = -1;
+    final Map<String, dynamic> latestFields = {};
+
+    row.forEach((key, value) {
+      final Match? match = keyPattern.firstMatch(key);
+      if (match == null) {
+        return;
+      }
+
+      final int session = int.tryParse(match.group(1) ?? '') ?? -1;
+      final int attempt = int.tryParse(match.group(2) ?? '') ?? -1;
+      final String field = match.group(3) ?? '';
+
+      if (attempt > latestAttempt ||
+          (attempt == latestAttempt && session > latestSession)) {
+        latestAttempt = attempt;
+        latestSession = session;
+        latestFields.clear();
+      }
+
+      if (attempt == latestAttempt && session == latestSession) {
+        latestFields[field] = value;
+      }
+    });
+
+    if (latestAttempt < 0 || latestSession < 0) {
+      return null;
+    }
+
+    return {
+      'attempt': latestAttempt,
+      'session': latestSession,
+      ...latestFields,
+    };
   }
 
   // this is old code for reference add item and events linked to item
