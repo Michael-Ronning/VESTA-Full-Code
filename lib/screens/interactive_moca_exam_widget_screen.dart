@@ -3,6 +3,25 @@ import 'dart:async';
 import 'package:projectmercury/resources/firestore_methods.dart';
 import 'package:projectmercury/resources/locator.dart';
 
+enum _DigitSpanPhase {
+  forwardReady,
+  forwardShowing,
+  forwardEntry,
+  backwardReady,
+  backwardShowing,
+  backwardEntry,
+}
+
+enum _MemoryPhase {
+  firstIntro,
+  firstShowing,
+  firstRecallPrompt,
+  secondIntro,
+  secondShowing,
+  postSecondReady,
+  finalReminder,
+}
+
 class InteractiveMoCAExamWidget extends StatefulWidget {
   const InteractiveMoCAExamWidget({super.key});
   static const routeName = '/moca';
@@ -16,6 +35,8 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   static const int _mocaMaxScore = 22;
   static const int _normalCutoff = 19;
   static const String _mocaVersion = 'moca22';
+  static const String _expectedOrientationPlace = 'NIL';
+  static const String _expectedOrientationCity = 'Denton';
 
   int _currentSection = 0;
   int _totalScore = 0;
@@ -32,17 +53,26 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   final List<int> bwdDigits = [7, 4, 2];
   List<int> bwdInput = [];
   bool bwdOk = false;
+  bool bwdChecked = false;
+
+  _DigitSpanPhase _digitSpanPhase = _DigitSpanPhase.forwardReady;
+  Timer? _digitSpanTimer;
+  int? _digitBeingShown;
+  int _digitDisplayIndex = 0;
   
-  final String vigLetters = 'FBACMNAAAJKLBAFAKDEAAAJAMOFAAB';
+  final String vigLetters = 'FBACMNAJKLBAFAKDEAJAMOFAB';
   int vigIdx = 0;
   int vigErrs = 0;
   int vigMiss = 0;
   bool vigDone = false;
+  bool vigStarted = false;
+  bool _vigTapRegisteredForCurrentLetter = false;
   Timer? vigTimer;
   
   List<int> s7answers = [];
   final s7expected = [93, 86, 79, 72, 65];
   int s7pts = 0;
+  final TextEditingController _s7Controller = TextEditingController();
   
   final sentences = [
     'I only know that John is the one to help today.',
@@ -51,8 +81,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   int sentencePts = 0;
 
   Timer? memoryTimer;
-  bool memoryStarted = false;
-  bool memoryComplete = false;
+  _MemoryPhase _memoryPhase = _MemoryPhase.firstIntro;
   int memoryWordIndex = -1;
   bool memoryShowingGap = false;
   
@@ -61,11 +90,19 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   Timer? fluencyTmr;
   bool fluencyActive = false;
   
-  final abstractPairs = ['Banana - Orange', 'Train - Bicycle'];
-  List<String> abstractInputs = ['', ''];
+  final List<String> _abstractionPrompts = [
+    'Banana - Orange',
+    'Train - Bicycle',
+    'Watch - Ruler',
+  ];
+  List<String> abstractInputs = ['', '', ''];
+  int _abstractionStep = 0;
+  bool _showAbstractionExampleInstruction = false;
+  final TextEditingController _abstractionController = TextEditingController();
   int abstractPts = 0;
   
   List<String> recallInputs = [];
+  final TextEditingController _recallController = TextEditingController();
   int recallPts = 0;
   
   final Map<String, String> orientation = {
@@ -83,6 +120,10 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     vigTimer?.cancel();
     fluencyTmr?.cancel();
     memoryTimer?.cancel();
+    _digitSpanTimer?.cancel();
+    _s7Controller.dispose();
+    _abstractionController.dispose();
+    _recallController.dispose();
     super.dispose();
   }
 
@@ -91,7 +132,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
 
     if (fwdOk) score++;
     if (bwdOk) score++;
-    if (vigErrs <= 2) score++;
+    if (_vigilanceCombinedErrors <= 2) score++;
     score += s7pts;
     score += sentencePts;
     if (fluencyList.length >= 11) score++;
@@ -154,7 +195,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     return {
       'digitFwd': fwdOk ? 1 : 0,
       'digitBwd': bwdOk ? 1 : 0,
-      'vigilance': vigErrs <= 2 ? 1 : 0,
+      'vigilance': _vigilanceCombinedErrors <= 2 ? 1 : 0,
       'serial7': s7pts,
       'sentence': sentencePts,
       'fluency': fluencyList.length >= 11 ? 1 : 0,
@@ -163,6 +204,8 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
       'orientation': orientPts,
     };
   }
+
+  int get _vigilanceCombinedErrors => vigErrs + vigMiss;
 
   void _goBack() {
     if (_currentSection > 0) {
@@ -202,10 +245,13 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   }
 
   void _startMemoryPresentation() {
+    _startMemoryPresentationForPass(secondPass: false);
+  }
+
+  void _startMemoryPresentationForPass({required bool secondPass}) {
     memoryTimer?.cancel();
     setState(() {
-      memoryStarted = true;
-      memoryComplete = false;
+      _memoryPhase = secondPass ? _MemoryPhase.secondShowing : _MemoryPhase.firstShowing;
       memoryWordIndex = 0;
       memoryShowingGap = false;
     });
@@ -223,8 +269,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           memoryWordIndex++;
           memoryShowingGap = false;
         } else {
-          memoryStarted = false;
-          memoryComplete = true;
+          _memoryPhase = secondPass ? _MemoryPhase.postSecondReady : _MemoryPhase.firstRecallPrompt;
           memoryWordIndex = -1;
           memoryShowingGap = false;
           timer.cancel();
@@ -241,15 +286,15 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Remember these words. They will be tested later.',
-          style: TextStyle(fontSize: 18),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 24),
-        if (!memoryStarted && !memoryComplete) ...[
+        if (_memoryPhase == _MemoryPhase.firstIntro) ...[
+          const Text(
+            'This is a memory test. You are going to see a list of words that you will have to remember now and later on. When the list is through, say as many words as you can remember out loud. It doesn\'t matter in what order you say them.',
+            style: TextStyle(fontSize: 18),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
           _largeBtn('I\'m Ready', _startMemoryPresentation, ico: Icons.play_arrow),
-        ] else if (memoryStarted &&
+        ] else if ((_memoryPhase == _MemoryPhase.firstShowing || _memoryPhase == _MemoryPhase.secondShowing) &&
             memoryWordIndex >= 0 &&
             memoryWordIndex < memWords.length) ...[
           Container(
@@ -270,10 +315,10 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           Text(
             memoryShowingGap
                 ? 'Pause'
-                : 'Word ${memoryWordIndex + 1} of ${memWords.length}',
+                : '${_memoryPhase == _MemoryPhase.secondShowing ? 'Second list' : 'First list'}: Word ${memoryWordIndex + 1} of ${memWords.length}',
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
-        ] else if (memoryComplete) ...[
+        ] else if (_memoryPhase == _MemoryPhase.firstRecallPrompt) ...[
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -282,25 +327,81 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
               border: Border.all(color: Colors.green, width: 2),
             ),
             child: const Text(
-              'Word presentation complete. Continue when ready.',
+              'Say as many remembered words as you can out loud now.',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
           ),
-        ],
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.orange[50],
-            borderRadius: BorderRadius.circular(8),
+          const SizedBox(height: 16),
+          _largeBtn(
+            'Continue',
+            () {
+              setState(() {
+                _memoryPhase = _MemoryPhase.secondIntro;
+              });
+            },
+            bg: Colors.blue,
+            ico: Icons.arrow_forward,
           ),
-          child: const Text(
-            'Try to remember these words for later!',
-            style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+        ] else if (_memoryPhase == _MemoryPhase.secondIntro) ...[
+          const Text(
+            'You are going to see the same list of words a second time. Try to remember as many of the words as you can, including the words you remembered the first time. When the list is through, say as many words as you can remember.',
+            style: TextStyle(fontSize: 18),
             textAlign: TextAlign.center,
           ),
-        ),
+          const SizedBox(height: 24),
+          _largeBtn(
+            'Show Words Again',
+            () => _startMemoryPresentationForPass(secondPass: true),
+            ico: Icons.play_arrow,
+          ),
+        ] else if (_memoryPhase == _MemoryPhase.postSecondReady) ...[
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.green[100],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green, width: 2),
+            ),
+            child: const Text(
+              'Please say the remembered words out loud now.',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _largeBtn(
+            'I\'m Ready to Continue',
+            () {
+              setState(() {
+                _memoryPhase = _MemoryPhase.finalReminder;
+              });
+            },
+            bg: Colors.blue,
+            ico: Icons.arrow_forward,
+          ),
+        ] else if (_memoryPhase == _MemoryPhase.finalReminder) ...[
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.blue[100],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue, width: 2),
+            ),
+            child: const Text(
+              'You will be asked to recall those words again at the end of the test.',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _largeBtn(
+            'Continue to Next Section',
+            () => _goNext(),
+            bg: Colors.green,
+            ico: Icons.arrow_forward,
+          ),
+        ],
       ],
     );
   }
@@ -313,136 +414,314 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'Forward: Repeat these numbers in the same order',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(12),
+        if (_digitSpanPhase == _DigitSpanPhase.forwardReady)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.amber[50],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.shade300),
+            ),
+            child: const Text(
+              'You are going to see a sequence of numbers. Once the numbers are through, select the number sequence in the same order as it appeared. Repeat the numbers exactly as they appeared, in the same order.',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
           ),
-          child: Text(
-            fwdDigits.join('  '),
-            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 8),
+        if (_digitSpanPhase == _DigitSpanPhase.backwardReady)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.amber[50],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.shade300),
+            ),
+            child: const Text(
+              'Now you are going to see another sequence of numbers, but this time, when the numbers are through, select the number sequence in the backwards order.',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 12,
-          children: List.generate(10, (n) {
-            return ElevatedButton(
-              onPressed: () {
-                setState(() => fwdInput.add(n));
-              },
-              style: ElevatedButton.styleFrom(
-                fixedSize: const Size(60, 60),
-                backgroundColor: Colors.blue,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: Text('$n', style: const TextStyle(fontSize: 24, color: Colors.white)),
-            );
-          }),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.blue, width: 2),
-            borderRadius: BorderRadius.circular(8),
+        const SizedBox(height: 20),
+        _buildDigitPresentationCard(),
+        const SizedBox(height: 20),
+        if (_digitSpanPhase == _DigitSpanPhase.forwardReady) ...[
+          _largeBtn(
+            'Ready for Forward Digit Span',
+            _startForwardDigitSpan,
+            ico: Icons.play_arrow,
           ),
-          child: Text(
-            'Your input: ${fwdInput.join(' ')}',
-            style: const TextStyle(fontSize: 20),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _largeBtn('Clear', () => setState(() => fwdInput.clear()), bg: Colors.orange)),
-            const SizedBox(width: 12),
-            Expanded(child: _largeBtn('Check', () {
+        ],
+        if (_digitSpanPhase == _DigitSpanPhase.forwardEntry) ...[
+          _buildDigitEntryPanel(
+            title: 'Forward Entry',
+            subtitle: 'Repeat the sequence in the same order.',
+            input: fwdInput,
+            inputColor: Colors.blue,
+            onDigit: (digit) => setState(() => fwdInput.add(digit)),
+            onBackspace: () {
+              if (fwdInput.isNotEmpty) {
+                setState(() => fwdInput.removeLast());
+              }
+            },
+            onClear: () => setState(() => fwdInput.clear()),
+            onCheck: () {
               setState(() {
-                fwdOk = fwdInput.length == fwdDigits.length && 
-                        List.generate(fwdInput.length, (i) => fwdInput[i] == fwdDigits[i]).every((e) => e);
+                fwdOk = fwdInput.length == fwdDigits.length &&
+                    List.generate(fwdInput.length, (i) => fwdInput[i] == fwdDigits[i]).every((e) => e);
+                _digitSpanPhase = _DigitSpanPhase.backwardReady;
               });
-            })),
-          ],
-        ),
-        if (fwdOk) 
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Text('✓ Correct!', style: TextStyle(color: Colors.green, fontSize: 18, fontWeight: FontWeight.bold)),
+            },
           ),
-        const SizedBox(height: 32),
-        const Text(
-          'Backward: Repeat these numbers in reverse order',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.purple[50],
-            borderRadius: BorderRadius.circular(12),
+        ],
+        if (_digitSpanPhase == _DigitSpanPhase.backwardReady) ...[
+          _largeBtn(
+            'Ready for Backward Digit Span',
+            _startBackwardDigitSpan,
+            ico: Icons.play_arrow,
           ),
-          child: Text(
-            bwdDigits.join('  '),
-            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 8),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 12,
-          children: List.generate(10, (n) {
-            return ElevatedButton(
-              onPressed: () => setState(() => bwdInput.add(n)),
-              style: ElevatedButton.styleFrom(
-                fixedSize: const Size(60, 60),
-                backgroundColor: Colors.purple,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: Text('$n', style: const TextStyle(fontSize: 24, color: Colors.white)),
-            );
-          }),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.purple, width: 2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            'Your input: ${bwdInput.join(' ')}',
-            style: const TextStyle(fontSize: 20),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _largeBtn('Clear', () => setState(() => bwdInput.clear()), bg: Colors.orange)),
-            const SizedBox(width: 12),
-            Expanded(child: _largeBtn('Check', () {
+        ],
+        if (_digitSpanPhase == _DigitSpanPhase.backwardEntry) ...[
+          _buildDigitEntryPanel(
+            title: 'Backward Entry',
+            subtitle: 'Repeat the sequence in reverse order.',
+            input: bwdInput,
+            inputColor: Colors.purple,
+            onDigit: (digit) => setState(() => bwdInput.add(digit)),
+            onBackspace: () {
+              if (bwdInput.isNotEmpty) {
+                setState(() => bwdInput.removeLast());
+              }
+            },
+            onClear: () => setState(() => bwdInput.clear()),
+            onCheck: () {
               final reversed = bwdDigits.reversed.toList();
               setState(() {
-                bwdOk = bwdInput.length == reversed.length && 
-                        List.generate(bwdInput.length, (i) => bwdInput[i] == reversed[i]).every((e) => e);
+                bwdChecked = true;
+                bwdOk = bwdInput.length == reversed.length &&
+                    List.generate(bwdInput.length, (i) => bwdInput[i] == reversed[i]).every((e) => e);
               });
-            })),
-          ],
-        ),
-        if (bwdOk)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Text('✓ Correct!', style: TextStyle(color: Colors.green, fontSize: 18, fontWeight: FontWeight.bold)),
+            },
           ),
+        ],
       ],
     );
+  }
+
+  Widget _buildDigitPresentationCard() {
+    final isShowing = _digitSpanPhase == _DigitSpanPhase.forwardShowing ||
+        _digitSpanPhase == _DigitSpanPhase.backwardShowing;
+    final isForward = _digitSpanPhase == _DigitSpanPhase.forwardShowing;
+    final bgColor = isForward ? Colors.blue[50] : Colors.purple[50];
+    final borderColor = isForward ? Colors.blue : Colors.purple;
+    final modeText = isForward ? 'Forward Sequence' : 'Backward Sequence';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: 2),
+      ),
+      child: Column(
+        children: [
+          Text(
+            isShowing ? modeText : 'Sequence Display',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: borderColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isShowing && _digitBeingShown != null ? '$_digitBeingShown' : '-',
+            style: const TextStyle(
+              fontSize: 56,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isShowing
+                ? 'Digit ${_digitDisplayIndex + 1} shown'
+                : 'Press Ready to begin this section.',
+            style: const TextStyle(fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDigitEntryPanel({
+    required String title,
+    required String subtitle,
+    required List<int> input,
+    required Color inputColor,
+    required ValueChanged<int> onDigit,
+    required VoidCallback onBackspace,
+    required VoidCallback onClear,
+    required VoidCallback onCheck,
+  }) {
+    return Column(
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          subtitle,
+          style: const TextStyle(fontSize: 17),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 14),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: inputColor, width: 2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            'Your input: ${input.join(' ')}',
+            style: const TextStyle(fontSize: 24),
+          ),
+        ),
+        const SizedBox(height: 14),
+        _buildPhoneKeypad(
+          keyColor: inputColor,
+          onDigit: onDigit,
+          onBackspace: onBackspace,
+          onClear: onClear,
+        ),
+        const SizedBox(height: 12),
+        _largeBtn('Check', onCheck),
+      ],
+    );
+  }
+
+  Widget _buildPhoneKeypad({
+    required Color keyColor,
+    required ValueChanged<int> onDigit,
+    required VoidCallback onBackspace,
+    required VoidCallback onClear,
+  }) {
+    const keys = [1, 2, 3, 4, 5, 6, 7, 8, 9, -1, 0, -2];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: keys.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 1.6,
+      ),
+      itemBuilder: (context, index) {
+        final key = keys[index];
+        if (key == -1) {
+          return ElevatedButton(
+            onPressed: onBackspace,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey[600],
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Icon(Icons.backspace, size: 24),
+          );
+        }
+
+        if (key == -2) {
+          return ElevatedButton(
+            onPressed: onClear,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text(
+              'Clear',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+            ),
+          );
+        }
+
+        return ElevatedButton(
+          onPressed: () => onDigit(key),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: keyColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          child: Text(
+            '$key',
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+          ),
+        );
+      },
+    );
+  }
+
+  void _startForwardDigitSpan() {
+    setState(() {
+      fwdInput.clear();
+      fwdOk = false;
+      _digitSpanPhase = _DigitSpanPhase.forwardShowing;
+    });
+    _startDigitPresentation(sequence: fwdDigits, isForward: true);
+  }
+
+  void _startBackwardDigitSpan() {
+    setState(() {
+      bwdInput.clear();
+      bwdOk = false;
+      bwdChecked = false;
+      _digitSpanPhase = _DigitSpanPhase.backwardShowing;
+    });
+    _startDigitPresentation(sequence: bwdDigits, isForward: false);
+  }
+
+  bool _canAdvanceFromCurrentSection() {
+    if (_currentSection == 0) {
+      return _memoryPhase == _MemoryPhase.finalReminder;
+    }
+    if (_currentSection == 1) {
+      return bwdChecked;
+    }
+    return true;
+  }
+
+  void _startDigitPresentation({required List<int> sequence, required bool isForward}) {
+    _digitSpanTimer?.cancel();
+
+    setState(() {
+      _digitDisplayIndex = 0;
+      _digitBeingShown = sequence.first;
+    });
+
+    _digitSpanTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      setState(() {
+        _digitDisplayIndex++;
+        if (_digitDisplayIndex < sequence.length) {
+          _digitBeingShown = sequence[_digitDisplayIndex];
+        } else {
+          _digitBeingShown = null;
+          timer.cancel();
+          _digitSpanPhase = isForward ? _DigitSpanPhase.forwardEntry : _DigitSpanPhase.backwardEntry;
+        }
+      });
+    });
   }
 
   Widget _vigilanceSection() {
@@ -454,7 +733,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
         ),
         const SizedBox(height: 16),
         const Text(
-          'Tap the screen each time you see the letter "A"',
+          'Tap the button whenever you see the letter A. If you see a different letter, do not tap the button. Press the \'Start Test\' button to start.',
           style: TextStyle(fontSize: 18),
           textAlign: TextAlign.center,
         ),
@@ -468,15 +747,20 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
               border: Border.all(color: Colors.blue, width: 3),
             ),
             child: Center(
-              child: Text(
-                vigIdx < vigLetters.length ? vigLetters[vigIdx] : '',
-                style: const TextStyle(fontSize: 80, fontWeight: FontWeight.bold),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+                child: Text(
+                  vigStarted && vigIdx < vigLetters.length ? vigLetters[vigIdx] : '-',
+                  key: ValueKey('vig_${vigStarted ? vigIdx : -1}'),
+                  style: const TextStyle(fontSize: 80, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 24),
-          _largeBtn(vigIdx == 0 ? 'Start Test' : 'Tap for "A"', () {
-            if (vigIdx == 0) {
+          _largeBtn(vigStarted ? 'Tap if Letter is "A"' : 'Start Test', () {
+            if (!vigStarted) {
               _startVigilance();
             } else {
               _handleVigilanceTap();
@@ -486,22 +770,24 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: vigErrs <= 2 ? Colors.green[100] : Colors.red[100],
+              color: Colors.blue[100],
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
+            child: const Column(
               children: [
                 Text(
                   'Test Complete!',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: vigErrs <= 2 ? Colors.green : Colors.red,
+                    color: Colors.blue,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text('Errors: $vigErrs', style: const TextStyle(fontSize: 20)),
-                Text('Missed: $vigMiss', style: const TextStyle(fontSize: 20)),
+                SizedBox(height: 12),
+                Text(
+                  'You can continue when ready.',
+                  style: TextStyle(fontSize: 20),
+                ),
               ],
             ),
           ),
@@ -511,35 +797,69 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   }
 
   void _startVigilance() {
+    vigTimer?.cancel();
+    setState(() {
+      vigStarted = true;
+      vigDone = false;
+      vigIdx = 0;
+      vigErrs = 0;
+      vigMiss = 0;
+      _vigTapRegisteredForCurrentLetter = false;
+    });
+
     vigTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (vigIdx >= vigLetters.length) {
+      if (!mounted) {
         t.cancel();
-        setState(() => vigDone = true);
+        return;
       }
+
+      setState(() {
+        if (vigIdx >= vigLetters.length) {
+          vigDone = true;
+          vigStarted = false;
+          t.cancel();
+          return;
+        }
+
+        if (vigLetters[vigIdx] == 'A' && !_vigTapRegisteredForCurrentLetter) {
+          vigMiss++;
+        }
+
+        vigIdx++;
+        _vigTapRegisteredForCurrentLetter = false;
+
+        if (vigIdx >= vigLetters.length) {
+          vigDone = true;
+          vigStarted = false;
+          t.cancel();
+        }
+      });
     });
   }
 
   void _handleVigilanceTap() {
-    if (vigIdx < vigLetters.length) {
-      final letter = vigLetters[vigIdx];
-      if (letter != 'A') {
+    if (!vigStarted || vigDone || vigIdx >= vigLetters.length) {
+      return;
+    }
+
+    if (_vigTapRegisteredForCurrentLetter) {
+      return;
+    }
+
+    setState(() {
+      if (vigLetters[vigIdx] != 'A') {
         vigErrs++;
       }
-      setState(() => vigIdx++);
-    }
-    
-    while (vigIdx < vigLetters.length && vigLetters[vigIdx] == 'A') {
-      vigMiss++;
-      vigIdx++;
-    }
-    
-    if (vigIdx >= vigLetters.length) {
-      vigTimer?.cancel();
-      setState(() => vigDone = true);
-    }
+      _vigTapRegisteredForCurrentLetter = true;
+    });
   }
 
   Widget _serial7Section() {
+    final currentStep = s7answers.length.clamp(0, s7expected.length);
+    final int? currentBase = currentStep == 0
+        ? 100
+        : (currentStep <= s7answers.length ? s7answers[currentStep - 1] : null);
+
     return Column(
       children: [
         const Text(
@@ -548,73 +868,148 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
         ),
         const SizedBox(height: 16),
         const Text(
-          'Starting at 100, subtract 7 repeatedly',
+          'Please count by subtracting 7 100, and then keep subtracting seven from your answer until you are prompted to stop.',
           style: TextStyle(fontSize: 18),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-        ...List.generate(5, (i) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    i == 0 ? '100 - 7 =' : "${s7expected[i-1]} - 7 =",
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                SizedBox(
-                  width: 120,
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    style: const TextStyle(fontSize: 22),
-                    onChanged: (v) {
-                      final num = int.tryParse(v);
-                      if (num != null) {
-                        setState(() {
-                          if (i < s7answers.length) {
-                            s7answers[i] = num;
-                          } else {
-                            s7answers.add(num);
-                          }
-                          _calcSerial7();
-                        });
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-        const SizedBox(height: 16),
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.blue[50],
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            'Correct: $s7pts / 3',
+            'Step ${currentStep + 1 > s7expected.length ? s7expected.length : currentStep + 1} of ${s7expected.length}',
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
           ),
         ),
+        const SizedBox(height: 16),
+        if (currentStep < s7expected.length && currentBase != null) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$currentBase - 7 =',
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                ),
+              ),
+              SizedBox(
+                width: 140,
+                child: TextField(
+                  controller: _s7Controller,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: 'Answer',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  style: const TextStyle(fontSize: 24),
+                  onSubmitted: (_) => _submitSerial7Answer(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _largeBtn('Enter Answer', _submitSerial7Answer, bg: Colors.blue),
+        ] else ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.green[100],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green, width: 2),
+            ),
+            child: const Text(
+              'Serial 7 sequence complete.',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        if (s7answers.isNotEmpty) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Recorded responses:',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.blue[800]),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...List.generate(s7answers.length, (i) {
+            final base = i == 0 ? 100 : s7answers[i - 1];
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '$base - 7 = ${s7answers[i]}',
+                  style: const TextStyle(fontSize: 19),
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 10),
+          _largeBtn(
+            'Undo Last Answer',
+            () {
+              setState(() {
+                if (s7answers.isNotEmpty) {
+                  s7answers.removeLast();
+                  _calcSerial7();
+                }
+                _s7Controller.clear();
+              });
+            },
+            bg: Colors.orange,
+            active: s7answers.isNotEmpty,
+          ),
+        ],
       ],
     );
+  }
+
+  void _submitSerial7Answer() {
+    final entered = int.tryParse(_s7Controller.text.trim());
+    if (entered == null) {
+      return;
+    }
+
+    if (s7answers.length >= s7expected.length) {
+      return;
+    }
+
+    setState(() {
+      s7answers.add(entered);
+      _calcSerial7();
+      _s7Controller.clear();
+    });
   }
 
   void _calcSerial7() {
     var correct = 0;
     for (var i = 0; i < s7answers.length && i < s7expected.length; i++) {
-      if (s7answers[i] == s7expected[i]) correct++;
+      final base = i == 0 ? 100 : s7answers[i - 1];
+      final expectedFromCurrentExpression = base - 7;
+      if (s7answers[i] == expectedFromCurrentExpression) {
+        correct++;
+      }
     }
-    s7pts = correct.clamp(0, 3);
+
+    if (correct == 0) {
+      s7pts = 0;
+    } else if (correct == 1) {
+      s7pts = 1;
+    } else if (correct <= 3) {
+      s7pts = 2;
+    } else {
+      s7pts = 3;
+    }
   }
 
   Widget _sentenceSection() {
@@ -764,6 +1159,8 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   }
 
   Widget _abstractionSection() {
+    final isComplete = _abstractionStep >= _abstractionPrompts.length;
+
     return Column(
       children: [
         const Text(
@@ -776,63 +1173,129 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           style: TextStyle(fontSize: 18),
         ),
         const SizedBox(height: 24),
-        ...List.generate(abstractPairs.length, (i) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  abstractPairs[i],
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: 'What they have in common',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                  style: const TextStyle(fontSize: 20),
-                  onChanged: (v) {
-                    abstractInputs[i] = v;
-                    _scoreAbstraction();
-                  },
-                ),
-              ],
+        if (_showAbstractionExampleInstruction) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue[100],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.blue, width: 2),
             ),
-          );
-        }),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(8),
+            child: const Text(
+              'An orange and a banana are alike because they are both fruit. Let\'s try another one.',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
           ),
-          child: Text(
-            'Score: $abstractPts / 2',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          const SizedBox(height: 16),
+          _largeBtn(
+            'Continue',
+            () {
+              setState(() {
+                _showAbstractionExampleInstruction = false;
+                _abstractionStep = 1;
+                _abstractionController.clear();
+              });
+            },
+            bg: Colors.blue,
           ),
-        ),
+        ] else if (!isComplete) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Prompt ${_abstractionStep + 1} of ${_abstractionPrompts.length}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              _abstractionPrompts[_abstractionStep],
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _abstractionController,
+            decoration: InputDecoration(
+              labelText: 'What they have in common',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            style: const TextStyle(fontSize: 20),
+            onSubmitted: (_) => _submitAbstractionAnswer(),
+          ),
+          const SizedBox(height: 16),
+          _largeBtn('Enter Answer', _submitAbstractionAnswer, bg: Colors.blue),
+        ] else ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.green[100],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.green, width: 2),
+            ),
+            child: const Text(
+              'Abstraction prompts complete. Continue when ready.',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ],
     );
   }
 
+  void _submitAbstractionAnswer() {
+    if (_showAbstractionExampleInstruction || _abstractionStep >= _abstractionPrompts.length) {
+      return;
+    }
+
+    final response = _abstractionController.text.trim();
+    if (response.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      abstractInputs[_abstractionStep] = response;
+      _abstractionController.clear();
+
+      if (_abstractionStep == 0) {
+        // First prompt is an example and is not scored.
+        _showAbstractionExampleInstruction = true;
+      } else {
+        _abstractionStep++;
+      }
+
+      _scoreAbstraction();
+    });
+  }
+
   void _scoreAbstraction() {
     var pts = 0;
-    final keywords = [
-      ['fruit', 'food'],
-      ['transport', 'vehicle', 'travel']
-    ];
-    
-    for (var i = 0; i < abstractInputs.length && i < keywords.length; i++) {
-      final ans = abstractInputs[i].toLowerCase();
-      if (keywords[i].any((k) => ans.contains(k))) {
-        pts++;
-      }
+
+    final vehicleAnswer = abstractInputs[1].toLowerCase();
+    if (vehicleAnswer.contains('transport') ||
+        vehicleAnswer.contains('vehicle') ||
+        vehicleAnswer.contains('travel')) {
+      pts++;
     }
-    setState(() => abstractPts = pts);
+
+    final watchRulerAnswer = abstractInputs[2].toLowerCase();
+    if (watchRulerAnswer.contains('measur')) {
+      pts++;
+    }
+    abstractPts = pts;
   }
 
   Widget _recallSection() {
@@ -844,52 +1307,45 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
         ),
         const SizedBox(height: 16),
         const Text(
-          'What were the 5 words from earlier?',
+          'Earlier, you saw a list of words that you were asked to remember. Type out as many of those words as you can remember now.',
           style: TextStyle(fontSize: 18),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-        ...List.generate(5, (i) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: TextField(
-              decoration: InputDecoration(
-                labelText: 'Word ${i + 1}',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-              style: const TextStyle(fontSize: 20),
-              onChanged: (v) {
-                if (i < recallInputs.length) {
-                  recallInputs[i] = v;
-                } else {
-                  recallInputs.add(v);
-                }
-                _scoreRecall();
-              },
-            ),
-          );
-        }),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(8),
+        TextField(
+          controller: _recallController,
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: 'Type remembered words here',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            filled: true,
+            fillColor: Colors.white,
           ),
-          child: Text(
-            'Recalled: $recallPts / 5',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
+          style: const TextStyle(fontSize: 20),
+          onChanged: (v) {
+            recallInputs = [v];
+            _scoreRecall();
+          },
         ),
       ],
     );
   }
 
   void _scoreRecall() {
+    if (recallInputs.isEmpty) {
+      recallPts = 0;
+      return;
+    }
+
+    final raw = recallInputs.first.toUpperCase();
+    final tokens = raw
+        .split(RegExp(r'[^A-Z]+'))
+        .where((w) => w.isNotEmpty)
+        .toSet();
+
     var pts = 0;
-    for (var i = 0; i < recallInputs.length && i < memWords.length; i++) {
-      if (recallInputs[i].trim().toUpperCase() == memWords[i]) {
+    for (final word in memWords) {
+      if (tokens.contains(word)) {
         pts++;
       }
     }
@@ -930,18 +1386,6 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             ),
           );
         }),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            'Score: $orientPts / 6',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ),
       ],
     );
   }
@@ -954,8 +1398,8 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     if (orientation['month']?.trim().toLowerCase() == _getMonthName(now.month).toLowerCase()) pts++;
     if (orientation['year']?.trim() == now.year.toString()) pts++;
     if (orientation['day']?.trim().toLowerCase() == _getDayName(now.weekday).toLowerCase()) pts++;
-    if (orientation['place']?.trim().isNotEmpty == true) pts++;
-    if (orientation['city']?.trim().isNotEmpty == true) pts++;
+    if (orientation['place']?.trim().toUpperCase() == _expectedOrientationPlace.toUpperCase()) pts++;
+    if (orientation['city']?.trim().toLowerCase() == _expectedOrientationCity.toLowerCase()) pts++;
     
     setState(() => orientPts = pts);
   }
@@ -1018,26 +1462,37 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                     fwdOk = false;
                     bwdInput.clear();
                     bwdOk = false;
+                    bwdChecked = false;
+                    _digitSpanTimer?.cancel();
+                    _digitSpanPhase = _DigitSpanPhase.forwardReady;
+                    _digitBeingShown = null;
+                    _digitDisplayIndex = 0;
                     vigIdx = 0;
                     vigErrs = 0;
                     vigMiss = 0;
                     vigDone = false;
+                    vigStarted = false;
+                    _vigTapRegisteredForCurrentLetter = false;
                     vigTimer?.cancel();
                     memoryTimer?.cancel();
-                    memoryStarted = false;
-                    memoryComplete = false;
+                    _memoryPhase = _MemoryPhase.firstIntro;
                     memoryWordIndex = -1;
                     memoryShowingGap = false;
                     s7answers.clear();
                     s7pts = 0;
+                    _s7Controller.clear();
                     sentencePts = 0;
                     fluencyTmr?.cancel();
                     fluencyList.clear();
                     fluencyActive = false;
                     timeLeft = 60;
-                    abstractInputs = ['', ''];
+                    abstractInputs = ['', '', ''];
+                    _abstractionStep = 0;
+                    _showAbstractionExampleInstruction = false;
+                    _abstractionController.clear();
                     abstractPts = 0;
                     recallInputs.clear();
+                    _recallController.clear();
                     recallPts = 0;
                     orientation['date'] = '';
                     orientation['month'] = '';
@@ -1071,7 +1526,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             children: [
               _scoreRow('Digits Forward', fwdOk ? 1 : 0, 1),
               _scoreRow('Digits Backward', bwdOk ? 1 : 0, 1),
-              _scoreRow('Vigilance', vigErrs <= 2 ? 1 : 0, 1),
+              _scoreRow('Vigilance', _vigilanceCombinedErrors <= 2 ? 1 : 0, 1),
               _scoreRow('Serial 7s', s7pts, 3),
               _scoreRow('Sentence Repetition', sentencePts, 2),
               _scoreRow('Verbal Fluency', fluencyList.length >= 11 ? 1 : 0, 1),
@@ -1177,7 +1632,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                                 : 'Next',
                             () => _goNext(),
                             bg: Colors.green,
-                            active: !_isSavingResult,
+                            active: !_isSavingResult && _canAdvanceFromCurrentSection(),
                             ico: _currentSection == _sectionCount - 1 ? Icons.check : Icons.arrow_forward,
                           ),
                         ),
