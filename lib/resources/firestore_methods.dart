@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +16,9 @@ import 'package:projectmercury/resources/auth_methods.dart';
 import 'package:projectmercury/resources/firestore_path.dart';
 import 'package:projectmercury/resources/firestore_service.dart';
 import 'package:projectmercury/resources/locator.dart';
+import 'package:projectmercury/resources/task_mapping_validator.dart';
 import 'package:projectmercury/utils/utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 //main firestore methods
 class FirestoreMethods {
@@ -25,8 +28,431 @@ class FirestoreMethods {
   late StreamSubscription _itemsSubscription;
   late StreamSubscription _eventsSubscription;
   late StreamSubscription _transactionsSubscription;
+  bool _taskMappingLoaded = false;
+  bool _taskMappingLoadFailed = false;
+  final Map<String, TaskMappingRow> _eventTaskMapping = {};
+  final Map<String, TaskMappingRow> _txnTaskMapping = {};
+  final Map<String, dynamic> _pendingDataRowFields = {};
+  final Map<String, Map<String, dynamic>> _pendingDocumentUpdates = {};
+  final Map<String, dynamic> _pendingUserSets = {};
+  final Map<String, num> _pendingUserIncrements = {};
+  final Map<int, Map<String, dynamic>> _pendingSessionSummarySets = {};
+  final Map<int, Map<String, num>> _pendingSessionSummaryIncrements = {};
+  bool _loadedBufferedState = false;
+  static const String _bufferPrefsKey = 'firestore_buffer_v1';
+
+  Future<void> _ensureTaskMappingLoaded() async {
+    if (_taskMappingLoaded || _taskMappingLoadFailed) {
+      return;
+    }
+    try {
+      final rows = await TaskMappingValidator.loadMappingRows();
+      for (final row in rows) {
+        if (!row.countAsTask) {
+          continue;
+        }
+        if (row.entityType == 'EVNT') {
+          _eventTaskMapping[row.templateId] = row;
+        } else if (row.entityType == 'TXN') {
+          _txnTaskMapping[row.templateId] = row;
+        }
+      }
+      _taskMappingLoaded = true;
+    } catch (e) {
+      _taskMappingLoadFailed = true;
+      debugPrint('Task mapping could not be loaded: $e');
+    }
+  }
+
+  String _eventTemplateId(Event event) {
+    return event.id.split('_').first;
+  }
+
+  String _transactionTemplateId(model.Transaction transaction) {
+    return transaction.id.split('_').first;
+  }
+
+  bool? _transactionSucceeded(model.Transaction transaction, bool approve) {
+    if (transaction.isScam) {
+      return !approve;
+    }
+    return approve;
+  }
+
+  Map<String, num> _taskOutcomeIncrements({
+    required String difficulty,
+    required bool success,
+  }) {
+    final Map<String, num> increments = {};
+    if (difficulty == 'easy') {
+      increments[success ? 'easyCompleted' : 'easyFailed'] = 1;
+    } else {
+      increments[success ? 'hardCompleted' : 'hardFailed'] = 1;
+    }
+    increments[success ? 'tasksCompleted' : 'tasksFailed'] = 1;
+    increments['tasksTotal'] = 1;
+    return increments;
+  }
+
+  String? _transactionDifficulty(model.Transaction transaction) {
+    final String? type = transaction.type?.name.toLowerCase();
+    if (type == null) {
+      return null;
+    }
+    if (type.contains('hard')) {
+      return 'hard';
+    }
+    if (type.contains('easy')) {
+      return 'easy';
+    }
+    return null;
+  }
+
+  bool get _hasPendingBufferedWrites =>
+      _pendingDocumentUpdates.isNotEmpty ||
+      _pendingDataRowFields.isNotEmpty ||
+      _pendingUserSets.isNotEmpty ||
+      _pendingUserIncrements.isNotEmpty ||
+      _pendingSessionSummarySets.isNotEmpty ||
+      _pendingSessionSummaryIncrements.isNotEmpty;
+
+  Map<String, dynamic> _encodeDynamicMap(Map<String, dynamic> input) {
+    final out = <String, dynamic>{};
+    input.forEach((key, value) {
+      if (value is DateTime) {
+        out[key] = {'__dt': value.toIso8601String()};
+      } else {
+        out[key] = value;
+      }
+    });
+    return out;
+  }
+
+  Map<String, dynamic> _decodeDynamicMap(Map<String, dynamic> input) {
+    final out = <String, dynamic>{};
+    input.forEach((key, value) {
+      if (value is Map && value.length == 1 && value['__dt'] is String) {
+        out[key] = DateTime.tryParse(value['__dt'] as String) ?? value;
+      } else {
+        out[key] = value;
+      }
+    });
+    return out;
+  }
+
+  Future<void> _persistBufferedState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = {
+        'docUpdates': _pendingDocumentUpdates.map(
+          (key, value) => MapEntry(key, _encodeDynamicMap(value)),
+        ),
+        'dataRow': _encodeDynamicMap(_pendingDataRowFields),
+        'userSets': _encodeDynamicMap(_pendingUserSets),
+        'userIncrements': _pendingUserIncrements,
+        'summarySets': _pendingSessionSummarySets.map(
+          (key, value) => MapEntry(key.toString(), _encodeDynamicMap(value)),
+        ),
+        'summaryIncrements': _pendingSessionSummaryIncrements.map(
+          (key, value) => MapEntry(key.toString(), value),
+        ),
+      };
+      await prefs.setString(_bufferPrefsKey, jsonEncode(encoded));
+    } catch (_) {}
+  }
+
+  Future<void> _loadBufferedStateIfNeeded() async {
+    if (_loadedBufferedState) return;
+    _loadedBufferedState = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_bufferPrefsKey);
+      if (raw == null || raw.isEmpty) {
+        return;
+      }
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return;
+      }
+
+      final docUpdates = decoded['docUpdates'];
+      if (docUpdates is Map<String, dynamic>) {
+        docUpdates.forEach((path, value) {
+          if (value is Map<String, dynamic>) {
+            _pendingDocumentUpdates[path] = _decodeDynamicMap(value);
+          }
+        });
+      }
+
+      final dataRow = decoded['dataRow'];
+      if (dataRow is Map<String, dynamic>) {
+        _pendingDataRowFields.addAll(_decodeDynamicMap(dataRow));
+      }
+
+      final userSets = decoded['userSets'];
+      if (userSets is Map<String, dynamic>) {
+        _pendingUserSets.addAll(_decodeDynamicMap(userSets));
+      }
+
+      final userIncrements = decoded['userIncrements'];
+      if (userIncrements is Map<String, dynamic>) {
+        userIncrements.forEach((k, v) {
+          if (v is num) {
+            _pendingUserIncrements[k] = v;
+          }
+        });
+      }
+
+      final summarySets = decoded['summarySets'];
+      if (summarySets is Map<String, dynamic>) {
+        summarySets.forEach((k, v) {
+          final session = int.tryParse(k);
+          if (session != null && v is Map<String, dynamic>) {
+            _pendingSessionSummarySets[session] = _decodeDynamicMap(v);
+          }
+        });
+      }
+
+      final summaryIncrements = decoded['summaryIncrements'];
+      if (summaryIncrements is Map<String, dynamic>) {
+        summaryIncrements.forEach((k, v) {
+          final session = int.tryParse(k);
+          if (session != null && v is Map<String, dynamic>) {
+            _pendingSessionSummaryIncrements[session] = {};
+            v.forEach((innerK, innerV) {
+              if (innerV is num) {
+                _pendingSessionSummaryIncrements[session]![innerK] = innerV;
+              }
+            });
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _queueDocumentUpdate(String path, Map<String, dynamic> fields) {
+    _pendingDocumentUpdates.putIfAbsent(path, () => {});
+    _pendingDocumentUpdates[path]!.addAll(fields);
+    unawaited(_persistBufferedState());
+  }
+
+  void _queueDataRowFields(Map<String, dynamic> fields) {
+    _pendingDataRowFields.addAll(fields);
+    unawaited(_persistBufferedState());
+  }
+
+  void _queueUserSetFields(Map<String, dynamic> fields) {
+    fields.forEach((key, value) {
+      _pendingUserSets[key] = value;
+      _pendingUserIncrements.remove(key);
+    });
+    unawaited(_persistBufferedState());
+  }
+
+  void _queueUserIncrementFields(Map<String, num> fields) {
+    fields.forEach((key, value) {
+      _pendingUserIncrements[key] = (_pendingUserIncrements[key] ?? 0) + value;
+    });
+    unawaited(_persistBufferedState());
+  }
+
+  void _queueSessionSummarySetFields(int session, Map<String, dynamic> fields) {
+    _pendingSessionSummarySets.putIfAbsent(session, () => {});
+    _pendingSessionSummarySets[session]!.addAll(fields);
+    unawaited(_persistBufferedState());
+  }
+
+  void _queueSessionSummaryIncrementFields(int session, Map<String, num> fields) {
+    _pendingSessionSummaryIncrements.putIfAbsent(session, () => {});
+    fields.forEach((key, value) {
+      _pendingSessionSummaryIncrements[session]![key] =
+          (_pendingSessionSummaryIncrements[session]![key] ?? 0) + value;
+    });
+    unawaited(_persistBufferedState());
+  }
+
+  Future<String?> _ensureCurrDataId() async {
+    final fs = _firestoreService;
+    final app = locator.get<AppState>();
+    final auth = locator.get<AuthMethods>();
+
+    String? dataId = app.currDataId;
+    if (dataId != null && dataId.isNotEmpty) {
+      return dataId;
+    }
+
+    final String name = '${getRoomInit(app.rooms[0].name)}_Start';
+    dataId = await fs.addDocument(
+      path: FirestorePath.newData(),
+      data: {
+        '0_User_Id': auth.uid,
+        '0_Email': auth.currentUser.email,
+        '1_${name}_time': DateTime.now(),
+        '1_${name}_bal': depositAmount[0],
+      },
+    );
+
+    await fs.updateDocument(
+      path: FirestorePath.user(),
+      data: {'currDataId': dataId},
+    );
+    app.currDataId = dataId;
+    return dataId;
+  }
+
+  Future<void> flushBufferedWrites({String reason = 'manual'}) async {
+    await _loadBufferedStateIfNeeded();
+    if (!_hasPendingBufferedWrites) {
+      return;
+    }
+
+    final docUpdates = Map<String, Map<String, dynamic>>.fromEntries(
+      _pendingDocumentUpdates.entries
+          .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value))),
+    );
+    final dataRowFields = Map<String, dynamic>.from(_pendingDataRowFields);
+    final userSets = Map<String, dynamic>.from(_pendingUserSets);
+    final userIncrements = Map<String, num>.from(_pendingUserIncrements);
+    final summarySets =
+        Map<int, Map<String, dynamic>>.fromEntries(_pendingSessionSummarySets
+            .entries
+            .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value))));
+    final summaryIncrements = Map<int, Map<String, num>>.fromEntries(
+      _pendingSessionSummaryIncrements.entries
+          .map((e) => MapEntry(e.key, Map<String, num>.from(e.value))),
+    );
+
+    try {
+      for (final entry in docUpdates.entries) {
+        await _firestoreService.updateDocument(
+          path: entry.key,
+          data: entry.value,
+        );
+      }
+
+      if (dataRowFields.isNotEmpty) {
+        final dataId = await _ensureCurrDataId();
+        if (dataId != null) {
+          await _firestoreService.updateDocument(
+            path: FirestorePath.newDataRow(dataId),
+            data: dataRowFields,
+          );
+        }
+      }
+
+      if (userSets.isNotEmpty || userIncrements.isNotEmpty) {
+        final userPayload = <String, dynamic>{...userSets};
+        userIncrements.forEach((key, value) {
+          userPayload[key] = FieldValue.increment(value);
+        });
+        await _firestoreService.updateDocument(
+          path: FirestorePath.user(),
+          data: userPayload,
+        );
+      }
+
+      final sessions = {
+        ...summarySets.keys,
+        ...summaryIncrements.keys,
+      };
+      for (final session in sessions) {
+        await _upsertSessionSummary(
+          session: session,
+          setFields: summarySets[session] ?? const {},
+          incrementFields: summaryIncrements[session] ?? const {},
+        );
+      }
+
+      _pendingDocumentUpdates.clear();
+      _pendingDataRowFields.clear();
+      _pendingUserSets.clear();
+      _pendingUserIncrements.clear();
+      _pendingSessionSummarySets.clear();
+      _pendingSessionSummaryIncrements.clear();
+      await _persistBufferedState();
+      debugPrint('Buffered Firestore writes flushed ($reason).');
+    } catch (e) {
+      debugPrint('Failed to flush buffered Firestore writes ($reason): $e');
+      await _persistBufferedState();
+    }
+  }
+
+  Future<void> _upsertSessionSummary({
+    required int session,
+    Map<String, dynamic> setFields = const {},
+    Map<String, num> incrementFields = const {},
+  }) async {
+    final auth = locator.get<AuthMethods>();
+    final app = locator.get<AppState>();
+    final String uid = auth.uid;
+    if (uid.isEmpty) {
+      return;
+    }
+
+    final String? email = auth.currentUser.email;
+    final Map<String, dynamic> payload = {
+      'uid': uid,
+      'email': email,
+      'emailNormalized': email?.toLowerCase(),
+      'session': session,
+      'currDataId': app.currDataId,
+      'summaryVersion': 'v1',
+      'updatedAt': FieldValue.serverTimestamp(),
+      ...setFields,
+    };
+
+    incrementFields.forEach((key, value) {
+      payload[key] = FieldValue.increment(value);
+    });
+
+    await FirebaseFirestore.instance
+        .doc(FirestorePath.sessionSummary(uid, session))
+        .set(payload, SetOptions(merge: true));
+  }
+
+  Future<void> _initializeSessionSummary(int session) async {
+    final app = locator.get<AppState>();
+    final uid = locator.get<AuthMethods>().uid;
+    if (uid.isEmpty) {
+      return;
+    }
+    final summaryPath = FirestorePath.sessionSummary(uid, session);
+    if (await _firestoreService.documentExists(path: summaryPath)) {
+      await _upsertSessionSummary(session: session);
+      return;
+    }
+
+    await _upsertSessionSummary(
+      session: session,
+      setFields: {
+        'sessionStartTs': FieldValue.serverTimestamp(),
+        'sessionEndTs': null,
+        'mocaCompleted': false,
+        'mocaTotal': null,
+        'mocaClass': null,
+        'mocaAttempt': null,
+        'mocaVersion': null,
+        'mocaMaxScore': null,
+        'easyCompleted': 0,
+        'easyFailed': 0,
+        'hardCompleted': 0,
+        'hardFailed': 0,
+        'tasksCompleted': 0,
+        'tasksFailed': 0,
+        'tasksTotal': 0,
+        'approvedTxns': 0,
+        'disputedTxns': 0,
+        'eventYes': 0,
+        'eventNo': 0,
+        'startingBalance': app.balance,
+        'endingBalance': null,
+        'hasMissingData': false,
+      },
+    );
+  }
 
   Future<void> initializeSubscriptions() async {
+    await _loadBufferedStateIfNeeded();
     _userSubscription = _firestoreService
         .documentStream(
             path: FirestorePath.user(),
@@ -140,11 +566,13 @@ class FirestoreMethods {
       await addTransaction(initialTransaction(), batch);
     }
     batch.commit();
+    await _initializeSessionSummary(locator.get<AppState>().session);
     locator.get<AppState>().updateBadge([0, 1, 3, 4]);
   }
 
 // reset data
   Future<void> resetData() async {
+    await flushBufferedWrites(reason: 'reset_data');
     cancelSubscriptions();
     _firestoreService.updateDocument(
       path: FirestorePath.user(),
@@ -168,6 +596,7 @@ class FirestoreMethods {
 
 // update user session
   Future<void> incrementSession() async {
+    await flushBufferedWrites(reason: 'room_finished');
     var batch = _firestoreService.newBatch();
     int session = locator.get<AppState>().session;
     // new
@@ -224,6 +653,16 @@ class FirestoreMethods {
       batch: batch,
     );
     batch.commit();
+
+    await _upsertSessionSummary(
+      session: session,
+      setFields: {
+        'sessionEndTs': FieldValue.serverTimestamp(),
+        'endingBalance': locator.get<AppState>().balance,
+      },
+    );
+
+    await _initializeSessionSummary(session + 1);
   }
 
   Future<void> unhideEvent(String? eventId, var batch) async {
@@ -363,22 +802,18 @@ class FirestoreMethods {
     );
 
     // ── Reset user counters ──
-    fs.updateDocument(
-      path: FirestorePath.user(),
-      data: {'TXN_CNT': 0, 'EVNT_CNT': 0},
-    );
+    _queueUserSetFields({'TXN_CNT': 0, 'EVNT_CNT': 0});
+    app.txnCnt = 0;
+    app.evntCnt = 0;
 
     // ── Record data row ──
     String name = '${slot.id}_BUY';
-    fs.updateDocument(
-      path: FirestorePath.newDataRow(dataId),
-      data: {
-        '${session}_${name}_time': time,
-        '${session}_${name}_item': item.name,
-        '${session}_${name}_rank': priceRank,
-        '${session}_${name}_cost': item.price,
-      },
-    );
+    _queueDataRowFields({
+      '${session}_${name}_time': time,
+      '${session}_${name}_item': item.name,
+      '${session}_${name}_rank': priceRank,
+      '${session}_${name}_cost': item.price,
+    });
 
     // ── Final commit ──
     await Future.delayed(
@@ -388,6 +823,9 @@ class FirestoreMethods {
   Future<void> submitMocaResult({
     required int totalScore,
     required Map<String, int> sectionScores,
+    String mocaVersion = 'moca22',
+    int mocaMaxScore = 22,
+    int normalCutoff = 19,
   }) async {
     final fs = _firestoreService;
     final app = locator.get<AppState>();
@@ -416,28 +854,31 @@ class FirestoreMethods {
 
     final int attempt = app.mocaCnt ?? 0;
     final String mocaKey = 'MOCA_M$attempt';
+    final String mocaClass = totalScore >= normalCutoff ? 'normal' : 'needs_followup';
     final Map<String, dynamic> payload = {
       '${session}_${mocaKey}_time': time,
       '${session}_${mocaKey}_session': session,
       '${session}_${mocaKey}_userId': auth.uid,
+      '${session}_${mocaKey}_version': mocaVersion,
+      '${session}_${mocaKey}_max': mocaMaxScore,
       '${session}_${mocaKey}_total': totalScore,
-      '${session}_${mocaKey}_class':
-          totalScore >= 26 ? 'normal' : 'needs_followup',
+      '${session}_${mocaKey}_class': mocaClass,
     };
 
     sectionScores.forEach((key, value) {
       payload['${session}_${mocaKey}_$key'] = value;
     });
 
-    await fs.updateDocument(
-      path: FirestorePath.newDataRow(dataId),
-      data: payload,
-    );
-
-    await fs.updateDocument(
-      path: FirestorePath.user(),
-      data: {'MOCA_CNT': FieldValue.increment(1)},
-    );
+    _queueDataRowFields(payload);
+    _queueUserIncrementFields({'MOCA_CNT': 1});
+    _queueSessionSummarySetFields(session, {
+      'mocaCompleted': true,
+      'mocaTotal': totalScore,
+      'mocaClass': mocaClass,
+      'mocaAttempt': attempt,
+      'mocaVersion': mocaVersion,
+      'mocaMaxScore': mocaMaxScore,
+    });
 
     app.mocaCnt = attempt + 1;
   }
@@ -623,6 +1064,7 @@ class FirestoreMethods {
 
   Future<void> resolveTransaction(
       BuildContext context, model.Transaction transaction, bool approve) async {
+    await _ensureTaskMappingLoaded();
     var batch = _firestoreService.newBatch();
     int session = locator.get<AppState>().session;
     final service = FirestoreService.instance;
@@ -768,20 +1210,48 @@ class FirestoreMethods {
       name[0] += (locator.get<AppState>().roomProgress[0] - 1).toString();
       name[0] == matchingIdwithDoc(name[0]);
     }
-    String txnName = '${name[0]}_T${locator.get<AppState>().txnCnt}';
-    _firestoreService.updateDocument(
-        path: FirestorePath.newDataRow(locator.get<AppState>().currDataId!),
-        data: {
-          '${session}_${txnName}_time': time,
-          '${session}_${txnName}_type': transaction.type?.name,
-          '${session}_${txnName}_desc': transaction.description,
-          '${session}_${txnName}_resp': approve ? 'approved' : 'disputed',
-          '${session}_${txnName}_pnt': point,
-          '${session}_${txnName}_amt': transaction.amount,
-          '${session}_${txnName}_bal': locator.get<AppState>().balance
-        });
-    _firestoreService.updateDocument(
-        path: FirestorePath.user(), data: {'TXN_CNT': FieldValue.increment(1)});
+    final app = locator.get<AppState>();
+    final int txnCnt = app.txnCnt ?? 0;
+    String txnName = '${name[0]}_T$txnCnt';
+    _queueDataRowFields({
+      '${session}_${txnName}_time': time,
+      '${session}_${txnName}_type': transaction.type?.name,
+      '${session}_${txnName}_desc': transaction.description,
+      '${session}_${txnName}_resp': approve ? 'approved' : 'disputed',
+      '${session}_${txnName}_pnt': point,
+      '${session}_${txnName}_amt': transaction.amount,
+      '${session}_${txnName}_bal': app.balance,
+    });
+    _queueUserIncrementFields({'TXN_CNT': 1});
+    app.txnCnt = txnCnt + 1;
+
+    final templateId = _transactionTemplateId(transaction);
+    final rule = _txnTaskMapping[templateId];
+    final String decision = approve ? 'approve' : 'dispute';
+
+    String? difficulty;
+    bool? success;
+    if (rule != null) {
+      difficulty = rule.difficulty;
+      success = rule.successDecision == decision;
+    } else {
+      difficulty = _transactionDifficulty(transaction);
+      success = _transactionSucceeded(transaction, approve);
+      debugPrint('Missing TXN mapping for templateId: $templateId');
+    }
+
+    final Map<String, num> increments = {
+      approve ? 'approvedTxns' : 'disputedTxns': 1,
+    };
+    if (difficulty != null && success != null) {
+      increments.addAll(
+        _taskOutcomeIncrements(
+          difficulty: difficulty,
+          success: success,
+        ),
+      );
+    }
+    _queueSessionSummaryIncrementFields(session, increments);
     // record data
     // _firestoreService.addDocument(
     //   path: FirestorePath.data(),
@@ -800,7 +1270,8 @@ class FirestoreMethods {
   }
 
   Future<void> resolveEvent(Event event, bool approve) async {
-    var batch = _firestoreService.newBatch();
+    await _ensureTaskMappingLoaded();
+    final app = locator.get<AppState>();
     int session = locator.get<AppState>().session;
     DateTime time = DateTime.now();
     EventState newState;
@@ -816,40 +1287,79 @@ class FirestoreMethods {
         point = 1;
       }
     }
-    _firestoreService.updateDocument(
-      path: FirestorePath.event(event.id),
-      batch: batch,
-      data: Event.getJson(
+    _queueDocumentUpdate(
+      FirestorePath.event(event.id),
+      Event.getJson(
         state: newState,
         timeActed: time,
       ),
     );
-    _firestoreService.updateDocument(
-      path: FirestorePath.user(),
-      batch: batch,
-      data: model.User.getJson(addToScore: point),
-    );
-    unhideEvent(event.unhideOnResolved, batch);
-    unhideTransaction(
-      event.id,
-      batch,
-    );
+    _queueUserIncrementFields({'score': point});
+    if (event.unhideOnResolved != null) {
+      _queueDocumentUpdate(
+        FirestorePath.event(event.unhideOnResolved!),
+        Event.getJson(
+          hidden: false,
+          timeSent: DateTime.now(),
+        ),
+      );
+    }
+    for (model.Transaction transaction in app.transactions
+        .where((element) => element.linkedEventId == event.id)
+        .where((element) =>
+            element.initialState == model.TransactionState.pending)
+        .toList()) {
+      _queueDocumentUpdate(
+        FirestorePath.transaction(transaction.id),
+        model.Transaction.getJson(
+          currentState: model.TransactionState.actionNeeded,
+          timeStamp: DateTime.now(),
+          hidden: false,
+        ),
+      );
+      transaction.currentState = model.TransactionState.actionNeeded;
+      transaction.hidden = false;
+      transaction.timeStamp = DateTime.now();
+    }
     // new
-    String name =
-        '${event.id.split('_')[0]}_E${locator.get<AppState>().evntCnt}';
-    _firestoreService.updateDocument(
-        path: FirestorePath.newDataRow(locator.get<AppState>().currDataId!),
-        data: {
-          '${session}_${name}_time': time,
-          '${session}_${name}_name': event.title,
-          '${session}_${name}_type': event.isScam ? 'scam' : 'legit',
-          '${session}_${name}_resp': approve ? 'approved' : 'rejected',
-          '${session}_${name}_pnt': point,
-          '${session}_${name}_lvl': event.difficulty.name,
-        });
-    _firestoreService.updateDocument(
-        path: FirestorePath.user(),
-        data: {'EVNT_CNT': FieldValue.increment(1)});
+    final int evntCnt = app.evntCnt ?? 0;
+    String name = '${event.id.split('_')[0]}_E$evntCnt';
+    _queueDataRowFields({
+      '${session}_${name}_time': time,
+      '${session}_${name}_name': event.title,
+      '${session}_${name}_type': event.isScam ? 'scam' : 'legit',
+      '${session}_${name}_resp': approve ? 'approved' : 'rejected',
+      '${session}_${name}_pnt': point,
+      '${session}_${name}_lvl': event.difficulty.name,
+    });
+    _queueUserIncrementFields({'EVNT_CNT': 1});
+    app.evntCnt = evntCnt + 1;
+
+    final templateId = _eventTemplateId(event);
+    final rule = _eventTaskMapping[templateId];
+    final String decision = approve ? 'yes' : 'no';
+
+    String difficulty;
+    bool success;
+    if (rule != null) {
+      difficulty = rule.difficulty;
+      success = rule.successDecision == decision;
+    } else {
+      difficulty = event.difficulty.name;
+      success = !event.isScam == approve;
+      debugPrint('Missing EVNT mapping for templateId: $templateId');
+    }
+
+    final Map<String, num> increments = {
+      approve ? 'eventYes' : 'eventNo': 1,
+    };
+    increments.addAll(
+      _taskOutcomeIncrements(
+        difficulty: difficulty,
+        success: success,
+      ),
+    );
+    _queueSessionSummaryIncrementFields(session, increments);
     // record data
     // _firestoreService.addDocument(
     //   path: FirestorePath.data(),
@@ -864,7 +1374,10 @@ class FirestoreMethods {
     //   ).toJson(),
     //   batch: batch,
     // );
-    batch.commit();
+    event.state = newState;
+    event.timeActed = time;
+    app.onEventsChanged(List<Event>.from(app.deployedEvents));
+    app.onTransactionsChanged(List<model.Transaction>.from(app.transactions));
   }
 
   // add new transaction data
@@ -899,21 +1412,46 @@ class FirestoreMethods {
 
   // mark event as read
   Future<void> markRead(Event event) async {
-    var batch = _firestoreService.newBatch();
+    final app = locator.get<AppState>();
     if (event.state == EventState.static) {
-      unhideTransaction(event.id, batch);
+      for (model.Transaction transaction in app.transactions
+          .where((element) => element.linkedEventId == event.id)
+          .where((element) =>
+              element.initialState == model.TransactionState.pending)
+          .toList()) {
+        _queueDocumentUpdate(
+          FirestorePath.transaction(transaction.id),
+          model.Transaction.getJson(
+            currentState: model.TransactionState.actionNeeded,
+            timeStamp: DateTime.now(),
+            hidden: false,
+          ),
+        );
+        transaction.currentState = model.TransactionState.actionNeeded;
+        transaction.hidden = false;
+        transaction.timeStamp = DateTime.now();
+      }
     }
     if (event.type == EventType.receipt) {
-      unhideEvent(event.unhideOnResolved, batch);
+      if (event.unhideOnResolved != null) {
+        _queueDocumentUpdate(
+          FirestorePath.event(event.unhideOnResolved!),
+          Event.getJson(
+            hidden: false,
+            timeSent: DateTime.now(),
+          ),
+        );
+      }
     }
-    await _firestoreService.updateDocument(
-      path: FirestorePath.event(event.id),
-      batch: batch,
-      data: Event.getJson(
+    _queueDocumentUpdate(
+      FirestorePath.event(event.id),
+      Event.getJson(
         wasOpened: true,
       ),
     );
-    batch.commit();
+    event.wasOpened = true;
+    app.onEventsChanged(List<Event>.from(app.deployedEvents));
+    app.onTransactionsChanged(List<model.Transaction>.from(app.transactions));
   }
 
 //Create new Data rows from old user data

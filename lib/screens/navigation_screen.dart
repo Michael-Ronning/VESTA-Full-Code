@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:projectmercury/pages/contactPage/contacts_page.dart';
 import 'package:projectmercury/pages/eventPage/event_page.dart';
@@ -26,7 +28,8 @@ class NavigationScreen extends StatefulWidget {
   }
 }
 
-class _NavigationScreenState extends State<NavigationScreen> {
+class _NavigationScreenState extends State<NavigationScreen>
+  with WidgetsBindingObserver {
   final AnalyticsMethods _analytics = locator.get<AnalyticsMethods>();
   final TimerController _timer = locator.get<TimerController>();
   final AuthMethods auth = locator.get<AuthMethods>();
@@ -57,16 +60,28 @@ class _NavigationScreenState extends State<NavigationScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     print('NavigationScreen initState called');
     locator.get<FirestoreMethods>().initializeSubscriptions();
     _timer.start();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(firestore.flushBufferedWrites(reason: 'app_lifecycle_$state'));
+    }
+  }
+
+  @override
   void dispose() {
-    super.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(firestore.flushBufferedWrites(reason: 'navigation_dispose'));
     locator.get<FirestoreMethods>().cancelSubscriptions();
     _timer.cancel();
+    super.dispose();
   }
 
   @override
@@ -209,6 +224,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
             ) ??
             false;
         if (result == true) {
+          await firestore.flushBufferedWrites(reason: 'logout');
           await auth.signout();
         }
         break;
@@ -222,6 +238,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
             ) ??
             false;
         if (result == true) {
+          await firestore.flushBufferedWrites(reason: 'reset');
           await firestore.resetData();
         }
         break;

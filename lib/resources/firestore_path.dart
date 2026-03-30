@@ -25,4 +25,8 @@ class FirestorePath {
 
   static String newData() => 'newData';
   static String newDataRow(String dataId) => 'newData/$dataId';
+
+    static String sessionSummaries() => 'sessionSummaries';
+    static String sessionSummary(String uid, int session) =>
+            'sessionSummaries/${uid}_S$session';
 }

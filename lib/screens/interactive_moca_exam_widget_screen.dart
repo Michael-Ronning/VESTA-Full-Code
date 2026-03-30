@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:projectmercury/resources/firestore_methods.dart';
 import 'package:projectmercury/resources/locator.dart';
 
@@ -13,26 +12,17 @@ class InteractiveMoCAExamWidget extends StatefulWidget {
 }
 
 class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
+  static const int _sectionCount = 9;
+  static const int _mocaMaxScore = 22;
+  static const int _normalCutoff = 19;
+  static const String _mocaVersion = 'moca22';
+
   int _currentSection = 0;
   int _totalScore = 0;
   bool _examComplete = false;
   bool _isSavingResult = false;
   String? _saveError;
-  
-  final List<String> trailSeq = ['1', 'A', '2', 'B', '3', 'C', '4', 'D', '5', 'E'];
-  List<String> completedTrails = [];
-  bool trailsPassed = false;
-  
-  List<Offset> cubePoints = [];
-  bool cubePassed = false;
-  
-  List<Offset> clockPoints = [];
-  int clockPts = 0;
-  
-  int namingPts = 0;
-  final animals = ['Lion', 'Rhinoceros', 'Camel'];
-  List<String> animalInputs = ['', '', ''];
-  
+
   static const memWords = ['FACE', 'VELVET', 'CHURCH', 'DAISY', 'RED'];
   
   final List<int> fwdDigits = [2, 1, 8, 5, 4];
@@ -98,11 +88,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
 
   void _calcScore() {
     var score = 0;
-    
-    if (trailsPassed) score++;
-    if (cubePassed) score++;
-    score += clockPts;
-    score += namingPts;
+
     if (fwdOk) score++;
     if (bwdOk) score++;
     if (vigErrs <= 2) score++;
@@ -117,7 +103,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   }
 
   Future<void> _goNext() async {
-    if (_currentSection < 12) {
+    if (_currentSection < _sectionCount - 1) {
       setState(() {
         _currentSection++;
       });
@@ -138,6 +124,9 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
       await locator.get<FirestoreMethods>().submitMocaResult(
         totalScore: _totalScore,
         sectionScores: _buildSectionScores(),
+        mocaVersion: _mocaVersion,
+        mocaMaxScore: _mocaMaxScore,
+        normalCutoff: _normalCutoff,
       );
       if (!mounted) {
         return;
@@ -163,10 +152,6 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
 
   Map<String, int> _buildSectionScores() {
     return {
-      'trail': trailsPassed ? 1 : 0,
-      'cube': cubePassed ? 1 : 0,
-      'clock': clockPts,
-      'naming': namingPts,
       'digitFwd': fwdOk ? 1 : 0,
       'digitBwd': bwdOk ? 1 : 0,
       'vigilance': vigErrs <= 2 ? 1 : 0,
@@ -185,7 +170,8 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     }
   }
 
-  Widget _largeBtn(String txt, VoidCallback onTap, {Color? bg, bool active = true, IconData? ico}) {
+  Widget _largeBtn(String txt, VoidCallback onTap,
+      {Color? bg, bool active = true, IconData? ico}) {
     return SizedBox(
       width: double.infinity,
       height: 70,
@@ -195,8 +181,10 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           backgroundColor: bg ?? Colors.blue,
           foregroundColor: Colors.white,
           disabledBackgroundColor: Colors.grey[300],
-          textStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle:
+              const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: active ? 4 : 0,
         ),
         child: Row(
@@ -211,299 +199,6 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
         ),
       ),
     );
-  }
-
-  Widget _trailTest() {
-    return Column(
-      children: [
-        const Text(
-          'Tap the circles in order:\n1 → A → 2 → B → 3 → C → 4 → D → 5 → E',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 24),
-        Container(
-          height: 400,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.blue, width: 3),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Stack(
-            children: List.generate(trailSeq.length, (i) {
-              final rnd = math.Random(i);
-              final x = 20.0 + rnd.nextDouble() * 250;
-              final y = 20.0 + rnd.nextDouble() * 300;
-              final done = completedTrails.contains(trailSeq[i]);
-              final isNext = completedTrails.length == i;
-              
-              return Positioned(
-                left: x,
-                top: y,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (isNext) {
-                        completedTrails.add(trailSeq[i]);
-                        if (completedTrails.length == trailSeq.length) {
-                          trailsPassed = true;
-                        }
-                      } else if (!done) {
-                        completedTrails.clear();
-                      }
-                    });
-                  },
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: done ? Colors.green : (Colors.blue[100]),
-                      border: Border.all(color: Colors.blue[900]!, width: 3),
-                    ),
-                    child: Center(
-                      child: Text(
-                        trailSeq[i],
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: done ? Colors.white : Colors.black,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-        const SizedBox(height: 16),
-        if (trailsPassed)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.green[100],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.check_circle, color: Colors.green, size: 32),
-                SizedBox(width: 12),
-                Text('Trail Making Complete! ✓', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _cubeSection() {
-    return Column(
-      children: [
-        const Text(
-          'Draw the cube below using your finger or stylus',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        Container(
-          height: 150,
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            border: Border.all(color: Colors.blue, width: 2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: CustomPaint(
-            painter: CubePainter(),
-            size: const Size(double.infinity, 150),
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Text('Your drawing:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Container(
-          height: 250,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.blue, width: 2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: GestureDetector(
-            onPanStart: (details) {
-              setState(() {
-                cubePoints.add(details.localPosition);
-              });
-            },
-            onPanUpdate: (details) {
-              setState(() {
-                cubePoints.add(details.localPosition);
-              });
-            },
-            onPanEnd: (details) {
-              setState(() {
-                cubePoints.add(Offset.infinite);
-              });
-            },
-            child: CustomPaint(
-              painter: DrawingPainter(cubePoints),
-              size: const Size(double.infinity, 250),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _largeBtn('Clear', () {
-                setState(() => cubePoints.clear());
-              }, bg: Colors.orange),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _largeBtn(cubePassed ? 'Marked ✓' : 'Mark Correct', () {
-                setState(() => cubePassed = !cubePassed);
-              }, bg: cubePassed ? Colors.green : Colors.blue),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _clockSection() {
-    return Column(
-      children: [
-        const Text(
-          'Draw a clock showing 10 past 11',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        Container(
-          height: 300,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.blue, width: 2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: GestureDetector(
-            onPanStart: (d) => setState(() => clockPoints.add(d.localPosition)),
-            onPanUpdate: (d) => setState(() => clockPoints.add(d.localPosition)),
-            onPanEnd: (d) => setState(() => clockPoints.add(Offset.infinite)),
-            child: CustomPaint(
-              painter: DrawingPainter(clockPoints),
-              size: const Size(double.infinity, 300),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _largeBtn('Clear Drawing', () => setState(() => clockPoints.clear()), bg: Colors.orange),
-        const SizedBox(height: 16),
-        const Text('Score this section:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: List.generate(4, (i) {
-            return GestureDetector(
-              onTap: () => setState(() => clockPts = i),
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: clockPts == i ? Colors.blue : Colors.grey[200],
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.blue, width: 2),
-                ),
-                child: Center(
-                  child: Text(
-                    '$i',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: clockPts == i ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ],
-    );
-  }
-
-  Widget _namingSection() {
-    return Column(
-      children: [
-        const Text(
-          'Name the following animals:',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 24),
-        ...List.generate(animals.length, (i) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Column(
-              children: [
-                Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue, width: 2),
-                  ),
-                  child: Center(
-                    child: CustomPaint(
-                      painter: i == 0 ? LionPainter(Colors.orange[700]!) : 
-                               i == 1 ? RhinoPainter(Colors.grey[700]!) : 
-                               CamelPainter(Colors.brown[600]!),
-                      size: const Size(100, 100),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: 'Your answer',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                  style: const TextStyle(fontSize: 20),
-                  onChanged: (val) {
-                    animalInputs[i] = val;
-                    _checkNaming();
-                  },
-                ),
-              ],
-            ),
-          );
-        }),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            'Score: $namingPts / 3',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _checkNaming() {
-    var pts = 0;
-    for (var i = 0; i < animals.length; i++) {
-      if (animalInputs[i].trim().toLowerCase() == animals[i].toLowerCase()) {
-        pts++;
-      }
-    }
-    setState(() => namingPts = pts);
   }
 
   void _startMemoryPresentation() {
@@ -906,7 +601,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            'Correct: $s7pts / 5',
+            'Correct: $s7pts / 3',
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
@@ -919,7 +614,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     for (var i = 0; i < s7answers.length && i < s7expected.length; i++) {
       if (s7answers[i] == s7expected[i]) correct++;
     }
-    s7pts = correct;
+    s7pts = correct.clamp(0, 3);
   }
 
   Widget _sentenceSection() {
@@ -1259,6 +954,8 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     if (orientation['month']?.trim().toLowerCase() == _getMonthName(now.month).toLowerCase()) pts++;
     if (orientation['year']?.trim() == now.year.toString()) pts++;
     if (orientation['day']?.trim().toLowerCase() == _getDayName(now.weekday).toLowerCase()) pts++;
+    if (orientation['place']?.trim().isNotEmpty == true) pts++;
+    if (orientation['city']?.trim().isNotEmpty == true) pts++;
     
     setState(() => orientPts = pts);
   }
@@ -1278,16 +975,16 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     return Column(
       children: [
         const Text(
-          'MoCA Test Results',
+          'MoCA-22 Test Results',
           style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            color: _totalScore >= 26 ? Colors.green[100] : Colors.orange[100],
+            color: _totalScore >= _normalCutoff ? Colors.green[100] : Colors.orange[100],
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _totalScore >= 26 ? Colors.green : Colors.orange, width: 3),
+            border: Border.all(color: _totalScore >= _normalCutoff ? Colors.green : Colors.orange, width: 3),
           ),
           child: Column(
             children: [
@@ -1296,16 +993,16 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w600,
-                  color: _totalScore >= 26 ? Colors.green[900] : Colors.orange[900],
+                  color: _totalScore >= _normalCutoff ? Colors.green[900] : Colors.orange[900],
                 ),
               ),
               const SizedBox(height: 12),
               Text(
-                '$_totalScore / 30',
+                '$_totalScore / $_mocaMaxScore',
                 style: TextStyle(
                   fontSize: 56,
                   fontWeight: FontWeight.bold,
-                  color: _totalScore >= 26 ? Colors.green[900] : Colors.orange[900],
+                  color: _totalScore >= _normalCutoff ? Colors.green[900] : Colors.orange[900],
                 ),
               ),
 
@@ -1316,15 +1013,16 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                     _currentSection = 0;
                     _examComplete = false;
                     // Reset all state variables here
-                    trailsPassed = false;
-                    cubePassed = false;
-                    clockPts = 0;
-                    namingPts = 0;
+                    _totalScore = 0;
+                    fwdInput.clear();
                     fwdOk = false;
+                    bwdInput.clear();
                     bwdOk = false;
+                    vigIdx = 0;
                     vigErrs = 0;
                     vigMiss = 0;
                     vigDone = false;
+                    vigTimer?.cancel();
                     memoryTimer?.cancel();
                     memoryStarted = false;
                     memoryComplete = false;
@@ -1333,14 +1031,20 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                     s7answers.clear();
                     s7pts = 0;
                     sentencePts = 0;
+                    fluencyTmr?.cancel();
                     fluencyList.clear();
                     fluencyActive = false;
                     timeLeft = 60;
-                    abstractInputs.clear();
+                    abstractInputs = ['', ''];
                     abstractPts = 0;
                     recallInputs.clear();
                     recallPts = 0;
-                    orientation.clear();
+                    orientation['date'] = '';
+                    orientation['month'] = '';
+                    orientation['year'] = '';
+                    orientation['day'] = '';
+                    orientation['place'] = '';
+                    orientation['city'] = '';
                     orientPts = 0;
                   });
                 },
@@ -1365,14 +1069,10 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _scoreRow('Trail Making', trailsPassed ? 1 : 0, 1),
-              _scoreRow('Cube Copy', cubePassed ? 1 : 0, 1),
-              _scoreRow('Clock Drawing', clockPts, 3),
-              _scoreRow('Naming', namingPts, 3),
               _scoreRow('Digits Forward', fwdOk ? 1 : 0, 1),
               _scoreRow('Digits Backward', bwdOk ? 1 : 0, 1),
               _scoreRow('Vigilance', vigErrs <= 2 ? 1 : 0, 1),
-              _scoreRow('Serial 7s', s7pts, 5),
+              _scoreRow('Serial 7s', s7pts, 3),
               _scoreRow('Sentence Repetition', sentencePts, 2),
               _scoreRow('Verbal Fluency', fluencyList.length >= 11 ? 1 : 0, 1),
               _scoreRow('Abstraction', abstractPts, 2),
@@ -1401,10 +1101,6 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   @override
   Widget build(BuildContext context) {
     final sections = [
-      _trailTest(),
-      _cubeSection(),
-      _clockSection(),
-      _namingSection(),
       _memorySection(),
       _digitSpanSection(),
       _vigilanceSection(),
@@ -1418,7 +1114,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MoCA Cognitive Assessment'),
+        title: const Text('MoCA-22 Cognitive Assessment'),
         backgroundColor: Colors.blue[700],
       ),
       body: _examComplete
@@ -1435,11 +1131,11 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Section ${_currentSection + 1} of 13',
+                        'Section ${_currentSection + 1} of $_sectionCount',
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '${(((_currentSection + 1) / 13) * 100).toInt()}%',
+                        '${(((_currentSection + 1) / _sectionCount) * 100).toInt()}%',
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -1457,7 +1153,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                     color: Colors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 4,
                         offset: const Offset(0, -2),
                       ),
@@ -1476,13 +1172,13 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                         child: Padding(
                           padding: EdgeInsets.only(left: _currentSection > 0 ? 8 : 0),
                           child: _largeBtn(
-                            _currentSection == 12
+                            _currentSection == _sectionCount - 1
                                 ? (_isSavingResult ? 'Saving...' : 'Finish')
                                 : 'Next',
                             () => _goNext(),
                             bg: Colors.green,
                             active: !_isSavingResult,
-                            ico: _currentSection == 12 ? Icons.check : Icons.arrow_forward,
+                            ico: _currentSection == _sectionCount - 1 ? Icons.check : Icons.arrow_forward,
                           ),
                         ),
                       ),
@@ -1505,249 +1201,4 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             ),
     );
   }
-}
-
-class DrawingPainter extends CustomPainter {
-  final List<Offset> points;
-  DrawingPainter(this.points);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.blue[900]!
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-
-    for (var i = 0; i < points.length - 1; i++) {
-      if (points[i] != Offset.infinite && points[i + 1] != Offset.infinite) {
-        canvas.drawLine(points[i], points[i + 1], paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(DrawingPainter old) => true;
-}
-
-class CubePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-
-    final w = size.width;
-    final h = size.height;
-    final cx = w / 2;
-    final cy = h / 2;
-    final s = math.min(w, h) * 0.4;
-
-    canvas.drawRect(Rect.fromLTWH(cx - s, cy - s/2, s, s), paint);
-    canvas.drawRect(Rect.fromLTWH(cx - s/2, cy - s, s, s), paint);
-    
-    canvas.drawLine(Offset(cx - s, cy - s/2), Offset(cx - s/2, cy - s), paint);
-    canvas.drawLine(Offset(cx, cy - s/2), Offset(cx + s/2, cy - s), paint);
-    canvas.drawLine(Offset(cx - s, cy + s/2), Offset(cx - s/2, cy), paint);
-    canvas.drawLine(Offset(cx, cy + s/2), Offset(cx + s/2, cy), paint);
-  }
-
-  @override
-  bool shouldRepaint(CubePainter old) => false;
-}
-
-class LionPainter extends CustomPainter {
-  final Color color;
-  LionPainter(this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-
-    canvas.drawCircle(Offset(cx, cy - 5), 35, paint);
-    
-    paint.color = color.withOpacity(0.8);
-    canvas.drawCircle(Offset(cx, cy - 5), 22, paint);
-    
-    paint.color = color;
-    canvas.drawCircle(Offset(cx - 18, cy - 20), 8, paint);
-    canvas.drawCircle(Offset(cx + 18, cy - 20), 8, paint);
-
-    final bodyRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(cx, cy + 25), width: 50, height: 35),
-      const Radius.circular(15),
-    );
-    canvas.drawRRect(bodyRect, paint);
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx - 20, cy + 35, 10, 15),
-        const Radius.circular(5),
-      ),
-      paint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx + 10, cy + 35, 10, 15),
-        const Radius.circular(5),
-      ),
-      paint,
-    );
-
-    final tailPath = Path()
-      ..moveTo(cx + 25, cy + 20)
-      ..quadraticBezierTo(cx + 35, cy + 25, cx + 30, cy + 35);
-    
-    paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 4;
-    canvas.drawPath(tailPath, paint);
-  }
-
-  @override
-  bool shouldRepaint(LionPainter old) => color != old.color;
-}
-
-class RhinoPainter extends CustomPainter {
-  final Color color;
-  RhinoPainter(this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-
-    final bodyRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(cx + 5, cy + 5), width: 65, height: 40),
-      const Radius.circular(20),
-    );
-    canvas.drawRRect(bodyRect, paint);
-
-    final headRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(cx - 25, cy - 5), width: 30, height: 25),
-      const Radius.circular(12),
-    );
-    canvas.drawRRect(headRect, paint);
-
-    final hornPath = Path()
-      ..moveTo(cx - 25, cy - 15)
-      ..lineTo(cx - 20, cy - 28)
-      ..lineTo(cx - 18, cy - 15)
-      ..close();
-    canvas.drawPath(hornPath, paint);
-
-    canvas.drawCircle(Offset(cx - 20, cy - 15), 6, paint);
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx - 15, cy + 20, 12, 18),
-        const Radius.circular(6),
-      ),
-      paint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx + 5, cy + 20, 12, 18),
-        const Radius.circular(6),
-      ),
-      paint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx + 20, cy + 20, 12, 18),
-        const Radius.circular(6),
-      ),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(RhinoPainter old) => color != old.color;
-}
-
-class CamelPainter extends CustomPainter {
-  final Color color;
-  CamelPainter(this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-
-    final bodyRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(cx, cy + 10), width: 55, height: 30),
-      const Radius.circular(15),
-    );
-    canvas.drawRRect(bodyRect, paint);
-
-    canvas.drawCircle(Offset(cx + 5, cy - 5), 18, paint);
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx - 25, cy - 10, 12, 25),
-        const Radius.circular(6),
-      ),
-      paint,
-    );
-
-    final headRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(cx - 22, cy - 15), width: 18, height: 15),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(headRect, paint);
-
-    canvas.drawCircle(Offset(cx - 20, cy - 22), 4, paint);
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx - 18, cy + 20, 10, 20),
-        const Radius.circular(5),
-      ),
-      paint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx - 5, cy + 20, 10, 20),
-        const Radius.circular(5),
-      ),
-      paint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx + 8, cy + 20, 10, 20),
-        const Radius.circular(5),
-      ),
-      paint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx + 20, cy + 20, 10, 20),
-        const Radius.circular(5),
-      ),
-      paint,
-    );
-
-    final tailPath = Path()
-      ..moveTo(cx + 27, cy + 10)
-      ..quadraticBezierTo(cx + 35, cy + 15, cx + 33, cy + 25);
-    
-    paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 3;
-    canvas.drawPath(tailPath, paint);
-  }
-
-  @override
-  bool shouldRepaint(CamelPainter old) => color != old.color;
 }
