@@ -8,7 +8,15 @@ class MySignInScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return SignInScreen(
       providers: [
-        EmailAuthProvider(), // ✅ Not EmailProviderConfiguration
+        EmailAuthProvider(),
+      ],
+      actions: [
+        AuthStateChangeAction<SignedIn>((context, state) {
+          // Sign-in is shown in a modal bottom sheet; close it after success.
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        }),
       ],
     );
   }

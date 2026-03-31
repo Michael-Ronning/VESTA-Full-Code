@@ -444,9 +444,14 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
               textAlign: TextAlign.center,
             ),
           ),
-        const SizedBox(height: 20),
-        _buildDigitPresentationCard(),
-        const SizedBox(height: 20),
+        if (_digitSpanPhase == _DigitSpanPhase.forwardReady ||
+            _digitSpanPhase == _DigitSpanPhase.backwardReady ||
+            _digitSpanPhase == _DigitSpanPhase.forwardShowing ||
+            _digitSpanPhase == _DigitSpanPhase.backwardShowing) ...[
+          const SizedBox(height: 20),
+          _buildDigitPresentationCard(),
+          const SizedBox(height: 20),
+        ],
         if (_digitSpanPhase == _DigitSpanPhase.forwardReady) ...[
           _largeBtn(
             'Ready for Forward Digit Span',
@@ -581,7 +586,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
         const SizedBox(height: 14),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: inputColor, width: 2),
@@ -589,18 +594,31 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           ),
           child: Text(
             'Your input: ${input.join(' ')}',
-            style: const TextStyle(fontSize: 24),
+            style: const TextStyle(fontSize: 20),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         _buildPhoneKeypad(
           keyColor: inputColor,
           onDigit: onDigit,
           onBackspace: onBackspace,
           onClear: onClear,
         ),
-        const SizedBox(height: 12),
-        _largeBtn('Check', onCheck),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton(
+            onPressed: onCheck,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Check'),
+          ),
+        ),
       ],
     );
   }
@@ -619,9 +637,9 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
       itemCount: keys.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 1.6,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 1.95,
       ),
       itemBuilder: (context, index) {
         final key = keys[index];
@@ -632,8 +650,9 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
               backgroundColor: Colors.grey[600],
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: EdgeInsets.zero,
             ),
-            child: const Icon(Icons.backspace, size: 24),
+            child: const Icon(Icons.backspace, size: 20),
           );
         }
 
@@ -647,7 +666,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             ),
             child: const Text(
               'Clear',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           );
         }
@@ -661,7 +680,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           ),
           child: Text(
             '$key',
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
         );
       },
