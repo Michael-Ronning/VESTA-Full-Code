@@ -275,80 +275,86 @@ Dialog mainDialog(
   Widget? footer,
 }) {
   ScrollController sc = ScrollController();
+  final Size screen = MediaQuery.sizeOf(context);
+  final double dialogWidth = screen.width < 700 ? screen.width * 0.92 : 700;
   return Dialog(
     insetPadding: EdgeInsets.symmetric(
-      horizontal: MediaQuery.of(context).size.width * .025,
-      vertical: MediaQuery.of(context).size.width * .20,
+      horizontal: screen.width * 0.04,
+      vertical: screen.height * 0.08,
     ),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     elevation: 3,
-    child: Padding(
-      padding: const EdgeInsets.all(10),
-      child: Column(
-        children: [
-          header ?? Container(),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.black.withOpacity(.1),
-                  width: 3,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black,
-                  ),
-                  BoxShadow(
-                    color: Colors.white,
-                    blurRadius: 12.0,
-                  ),
-                ],
-              ),
-              child: SingleChildScrollView(
-                controller: sc,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: body ?? Container(),
-                ),
-              ),
-              /* child: RawScrollbar( */
-              /*   thumbVisibility: true, */
-              /*   thumbColor: Theme.of(context).colorScheme.primary, */
-              /*   thickness: 12, */
-              /*   radius: const Radius.circular(8), */
-              /* ), */
-            ),
-          ),
-          const SizedBox(height: 12),
-          footer ?? Container(),
-          Row(
+    child: SizedBox(
+      width: dialogWidth,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minWidth: 320,
+          maxHeight: screen.height * 0.84,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
+              header ?? Container(),
+              const SizedBox(height: 12),
               Flexible(
-                fit: FlexFit.tight,
-                child: OutlinedButton(
-                  style: ButtonStyle(
-                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      width: 3,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black,
+                      ),
+                      BoxShadow(
+                        color: Colors.white,
+                        blurRadius: 12.0,
+                      ),
+                    ],
+                  ),
+                  child: SingleChildScrollView(
+                    controller: sc,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: body ?? Container(),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              footer ?? Container(),
+              Row(
+                children: [
+                  Flexible(
+                    fit: FlexFit.tight,
+                    child: OutlinedButton(
+                      style: ButtonStyle(
+                        shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text(
+                        'Close',
+                        style: TextStyle(
+                          fontSize: 20,
+                        ),
                       ),
                     ),
                   ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text(
-                    'Close',
-                    style: TextStyle(
-                      fontSize: 20,
-                    ),
-                  ),
-                ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     ),
   );

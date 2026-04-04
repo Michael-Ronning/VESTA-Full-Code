@@ -44,6 +44,7 @@ class AppState with ChangeNotifier {
   String? currDataId;
   int? txnCnt = 0;
   int? evntCnt = 0;
+  int? mocaCnt = 0;
 
   num _balance = 0;
   num get balance => _balance;

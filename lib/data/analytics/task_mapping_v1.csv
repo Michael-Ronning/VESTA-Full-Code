@@ -1,0 +1,4 @@
+templateId,entityType,difficulty,successDecision,countAsTask,notes
+evnt_unknown_link_sms,EVNT,hard,no,true,phishing SMS
+txn_legit_util_bill,TXN,easy,approve,true,normal utility charge
+evnt_receipt_info,EVNT,easy,,false,informational only

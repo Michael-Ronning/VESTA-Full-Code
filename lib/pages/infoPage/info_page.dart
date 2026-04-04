@@ -6,6 +6,9 @@ import 'package:projectmercury/resources/locator.dart';
 import 'package:projectmercury/resources/time_controller.dart';
 import 'package:provider/provider.dart';
 
+// DEBUG ONLY: Set to false before committing to production.
+const bool showDebugPanels = true;
+
 class InfoPage extends StatefulWidget {
   const InfoPage({Key? key}) : super(key: key);
 
@@ -14,6 +17,73 @@ class InfoPage extends StatefulWidget {
 }
 
 class _InfoPageState extends State<InfoPage> {
+  Future<Map<String, dynamic>?>? _mocaDebugFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    if (showDebugPanels) {
+      _refreshMocaDebug();
+    }
+  }
+
+  void _refreshMocaDebug() {
+    setState(() {
+      _mocaDebugFuture =
+          locator.get<FirestoreMethods>().getLatestMocaDebugData();
+    });
+  }
+
+  Widget _buildMocaDebugPanel() {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _mocaDebugFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(12),
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              'Debug read failed: ${snapshot.error}',
+              style: const TextStyle(color: Colors.red),
+            ),
+          );
+        }
+
+        final Map<String, dynamic>? data = snapshot.data;
+        if (data == null) {
+          return const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text('No MoCA data found yet for this user.'),
+          );
+        }
+
+        final List<String> keys = data.keys.toList()..sort();
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Attempt: ${data['attempt']}'),
+              Text('Session: ${data['session']}'),
+              const SizedBox(height: 8),
+              ...keys
+                  .where((k) => k != 'attempt' && k != 'session')
+                  .map(
+                    (k) => Text('$k: ${data[k]}'),
+                  ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final TimerController timer = locator.get<TimerController>();
@@ -167,6 +237,28 @@ class _InfoPageState extends State<InfoPage> {
                     const SizedBox(height: 12),
                   ],
                 ),
+                if (showDebugPanels)
+                  // DEBUG ONLY: Remove this MoCA debug panel before committing to production.
+                  Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          title: const Text(
+                            'MoCA Debug Snapshot',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle:
+                              const Text('Latest saved MoCA fields from Firestore'),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: _refreshMocaDebug,
+                          ),
+                        ),
+                        _buildMocaDebugPanel(),
+                      ],
+                    ),
+                  ),
               ],
             );
           }),
