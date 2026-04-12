@@ -49,6 +49,7 @@ dependencies:
   js: ^0.7.2
   firebase_ui_auth: ^1.10.0
   collection: ^1.17.2
+  speech_to_text: ^6.6.2
 
 dev_dependencies:
   flutter_lints: ^2.0.1

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:projectmercury/resources/firestore_methods.dart';
 import 'package:projectmercury/resources/locator.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 enum _DigitSpanPhase {
   forwardReady,
@@ -79,6 +80,12 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     'The cat always hid under the couch when dogs were in the room.'
   ];
   int sentencePts = 0;
+  final stt.SpeechToText _speechToText = stt.SpeechToText();
+  bool _speechAvailable = false;
+  bool _isListening = false;
+  int? _activeSentenceIndex;
+  String? _speechError;
+  List<String> _sentenceTranscripts = List<String>.filled(2, '', growable: false);
 
   Timer? memoryTimer;
   _MemoryPhase _memoryPhase = _MemoryPhase.firstIntro;
@@ -116,15 +123,223 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   int orientPts = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _initializeSpeech();
+  }
+
+  @override
   void dispose() {
     vigTimer?.cancel();
     fluencyTmr?.cancel();
     memoryTimer?.cancel();
     _digitSpanTimer?.cancel();
+    _speechToText.stop();
     _s7Controller.dispose();
     _abstractionController.dispose();
     _recallController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeSpeech() async {
+    final available = await _speechToText.initialize(
+      onStatus: (status) {
+        if (!mounted) {
+          return;
+        }
+        if (status == 'done' || status == 'notListening') {
+          setState(() {
+            _isListening = false;
+            _activeSentenceIndex = null;
+          });
+        }
+      },
+      onError: (error) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _speechError = error.errorMsg;
+          _isListening = false;
+          _activeSentenceIndex = null;
+        });
+      },
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _speechAvailable = available;
+      if (!available) {
+        _speechError = 'Speech recognition is unavailable on this device/browser.';
+      }
+    });
+  }
+
+  Future<void> _startSentenceListening(int sentenceIndex) async {
+    if (!_speechAvailable) {
+      setState(() {
+        _speechError = 'Speech recognition is unavailable on this device/browser.';
+      });
+      return;
+    }
+
+    if (_isListening) {
+      await _speechToText.stop();
+    }
+
+    setState(() {
+      _speechError = null;
+      _isListening = true;
+      _activeSentenceIndex = sentenceIndex;
+    });
+
+    await _speechToText.listen(
+      onResult: (result) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _sentenceTranscripts[sentenceIndex] = result.recognizedWords;
+          _recomputeSentenceAutoScore();
+        });
+      },
+      partialResults: true,
+      cancelOnError: true,
+      listenMode: stt.ListenMode.confirmation,
+    );
+  }
+
+  Future<void> _stopSentenceListening() async {
+    await _speechToText.stop();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isListening = false;
+      _activeSentenceIndex = null;
+    });
+  }
+
+  void _recomputeSentenceAutoScore() {
+    var scoreMask = 0;
+    for (var i = 0; i < sentences.length; i++) {
+      if (_isSentenceMatchLoose(_sentenceTranscripts[i], sentences[i])) {
+        scoreMask |= (1 << i);
+      }
+    }
+    sentencePts = scoreMask;
+  }
+
+  bool _isSentenceMatchLoose(String spoken, String target) {
+    final spokenTokens = _tokenizeSentence(spoken);
+    final targetTokens = _tokenizeSentence(target);
+
+    if (spokenTokens.isEmpty || targetTokens.isEmpty) {
+      return false;
+    }
+
+    final tokenCoverage = _tokenCoverage(spokenTokens, targetTokens);
+    final orderedCoverage = _orderedCoverage(spokenTokens, targetTokens);
+    final lengthRatio = spokenTokens.length / targetTokens.length;
+
+    if (lengthRatio < 0.55 || lengthRatio > 1.65) {
+      return false;
+    }
+
+    // Loose acceptance tuned for speech-to-text variation while avoiding short partials.
+    return tokenCoverage >= 0.78 ||
+        (tokenCoverage >= 0.68 && orderedCoverage >= 0.6) ||
+        orderedCoverage >= 0.72;
+  }
+
+  List<String> _tokenizeSentence(String text) {
+    var normalized = text.toLowerCase();
+    normalized = normalized
+        .replaceAll("can't", 'cannot')
+        .replaceAll("won't", 'will not')
+        .replaceAll("n't", ' not')
+        .replaceAll("'re", ' are')
+        .replaceAll("'ll", ' will')
+        .replaceAll("'ve", ' have')
+        .replaceAll("'d", ' would')
+        .replaceAll("'m", ' am')
+        .replaceAll("'s", ' is')
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    if (normalized.isEmpty) {
+      return const [];
+    }
+
+    return normalized.split(' ');
+  }
+
+  double _tokenCoverage(List<String> spokenTokens, List<String> targetTokens) {
+    var matched = 0;
+    final usedSpoken = List<bool>.filled(spokenTokens.length, false);
+
+    for (final target in targetTokens) {
+      var found = false;
+      for (var i = 0; i < spokenTokens.length; i++) {
+        if (usedSpoken[i]) {
+          continue;
+        }
+
+        final spoken = spokenTokens[i];
+        if (_tokensRoughlyMatch(spoken, target)) {
+          usedSpoken[i] = true;
+          matched++;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        continue;
+      }
+    }
+
+    return matched / targetTokens.length;
+  }
+
+  double _orderedCoverage(List<String> spokenTokens, List<String> targetTokens) {
+    final dp = List.generate(
+      targetTokens.length + 1,
+      (_) => List<int>.filled(spokenTokens.length + 1, 0),
+    );
+
+    for (var i = 1; i <= targetTokens.length; i++) {
+      for (var j = 1; j <= spokenTokens.length; j++) {
+        if (_tokensRoughlyMatch(targetTokens[i - 1], spokenTokens[j - 1])) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = dp[i - 1][j] > dp[i][j - 1] ? dp[i - 1][j] : dp[i][j - 1];
+        }
+      }
+    }
+
+    return dp[targetTokens.length][spokenTokens.length] / targetTokens.length;
+  }
+
+  bool _tokensRoughlyMatch(String a, String b) {
+    if (a == b) {
+      return true;
+    }
+
+    if (a.length >= 4 && b.length >= 4) {
+      if (a.startsWith(b) || b.startsWith(a)) {
+        return true;
+      }
+      if (a.contains(b) || b.contains(a)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   void _calcScore() {
@@ -134,7 +349,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     if (bwdOk) score++;
     if (_vigilanceCombinedErrors <= 2) score++;
     score += s7pts;
-    score += sentencePts;
+    score += _sentenceScore;
     if (fluencyList.length >= 11) score++;
     score += abstractPts;
     score += recallPts;
@@ -197,7 +412,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
       'digitBwd': bwdOk ? 1 : 0,
       'vigilance': _vigilanceCombinedErrors <= 2 ? 1 : 0,
       'serial7': s7pts,
-      'sentence': sentencePts,
+      'sentence': _sentenceScore,
       'fluency': fluencyList.length >= 11 ? 1 : 0,
       'abstract': abstractPts,
       'recall': recallPts,
@@ -206,6 +421,13 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   }
 
   int get _vigilanceCombinedErrors => vigErrs + vigMiss;
+
+  int get _sentenceScore {
+    var score = 0;
+    if ((sentencePts & 1) != 0) score++;
+    if ((sentencePts & 2) != 0) score++;
+    return score;
+  }
 
   void _goBack() {
     if (_currentSection > 0) {
@@ -1040,11 +1262,32 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
         ),
         const SizedBox(height: 16),
         const Text(
-          'Listen and repeat these sentences exactly:',
+          'Press the microphone button and read each sentence aloud exactly as written.',
           style: TextStyle(fontSize: 18),
+          textAlign: TextAlign.center,
         ),
+        if (_speechError != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange[100],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange, width: 1.5),
+            ),
+            child: Text(
+              _speechError!,
+              style: const TextStyle(fontSize: 15),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
         ...List.generate(sentences.length, (i) {
+          final isThisSentenceListening = _isListening && _activeSentenceIndex == i;
+          final isAutoMatched = (sentencePts & (1 << i)) != 0;
+
           return Padding(
             padding: const EdgeInsets.only(bottom: 24),
             child: Column(
@@ -1063,29 +1306,54 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                 ),
                 const SizedBox(height: 12),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    ElevatedButton(
-                      onPressed: () => setState(() {
-                        if (sentencePts & (1 << i) == 0) sentencePts |= (1 << i);
-                      }),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: sentencePts & (1 << i) != 0 ? Colors.green : Colors.grey[300],
-                        fixedSize: const Size(120, 50),
+                    Expanded(
+                      child: _largeBtn(
+                        isThisSentenceListening ? 'Stop Microphone' : 'Start Microphone',
+                        isThisSentenceListening
+                            ? _stopSentenceListening
+                            : () => _startSentenceListening(i),
+                        bg: isThisSentenceListening ? Colors.red : Colors.blue,
+                        ico: isThisSentenceListening ? Icons.stop : Icons.mic,
+                        active: _speechAvailable,
                       ),
-                      child: const Text('Correct', style: TextStyle(fontSize: 16)),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => setState(() {
-                        if (sentencePts & (1 << i) != 0) sentencePts &= ~(1 << i);
-                      }),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: sentencePts & (1 << i) == 0 ? Colors.red : Colors.grey[300],
-                        fixedSize: const Size(120, 50),
-                      ),
-                      child: const Text('Incorrect', style: TextStyle(fontSize: 16)),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isAutoMatched ? Colors.green[50] : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isAutoMatched ? Colors.green : Colors.blueGrey,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _sentenceTranscripts[i].trim().isEmpty
+                            ? 'Transcript will appear here while speaking.'
+                            : _sentenceTranscripts[i],
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isAutoMatched
+                            ? 'Auto-check: Matched'
+                            : 'Auto-check: Not matched yet',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isAutoMatched ? Colors.green[800] : Colors.orange[800],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1501,6 +1769,11 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                     s7pts = 0;
                     _s7Controller.clear();
                     sentencePts = 0;
+                    _speechToText.stop();
+                    _speechError = null;
+                    _isListening = false;
+                    _activeSentenceIndex = null;
+                    _sentenceTranscripts = List<String>.filled(sentences.length, '', growable: false);
                     fluencyTmr?.cancel();
                     fluencyList.clear();
                     fluencyActive = false;
@@ -1547,7 +1820,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
               _scoreRow('Digits Backward', bwdOk ? 1 : 0, 1),
               _scoreRow('Vigilance', _vigilanceCombinedErrors <= 2 ? 1 : 0, 1),
               _scoreRow('Serial 7s', s7pts, 3),
-              _scoreRow('Sentence Repetition', sentencePts, 2),
+              _scoreRow('Sentence Repetition', _sentenceScore, 2),
               _scoreRow('Verbal Fluency', fluencyList.length >= 11 ? 1 : 0, 1),
               _scoreRow('Abstraction', abstractPts, 2),
               _scoreRow('Delayed Recall', recallPts, 5),
