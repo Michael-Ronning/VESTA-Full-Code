@@ -36,7 +36,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   static const int _sectionCount = 4;
   static const int _mocaMaxScore = 12;
   static const int _normalCutoff = 10;
-  static const String _mocaVersion = 'moca22';
+  static const String _mocaVersion = 'minimoca';
   static const String _expectedOrientationPlace = 'NIL';
   static const String _expectedOrientationCity = 'Denton';
 
