@@ -1,9 +1,9 @@
 /// Data model for a complete VESTA assessment result.
-/// Includes both MoCA cognitive scores and SIMS game scores.
+/// Includes both Mini MoCA cognitive scores and SIMS game scores.
 
 class MocaSectionResult {
-  final String sectionName;       // e.g., "Memory"
-  final String friendlyName;      // e.g., "Your Memory Score"
+  final String sectionName;       // e.g., "Fluency"
+  final String friendlyName;      // e.g., "Verbal Fluency"
   final int pointsScored;
   final int maxPoints;
   final String description;       // Simple explanation for the patient
@@ -44,7 +44,7 @@ class VestaAssessmentResult {
   // --- Patient Info ---
   final String patientName;
   final DateTime assessmentDate;
-  final int educationYears;       // For MoCA +1 adjustment
+  final int educationYears;       // Kept for compatibility with existing UI
 
   // --- MoCA Sections ---
   final List<MocaSectionResult> mocaSections;
@@ -52,36 +52,47 @@ class VestaAssessmentResult {
   // --- SIMS Game Sections ---
   final List<SimsSectionResult> simsSections;
 
+  // --- Optional Firebase Summary Overrides ---
+  final int? mocaTotalOverride;
+  final int? mocaMaxOverride;
+
   VestaAssessmentResult({
     required this.patientName,
     required this.assessmentDate,
     required this.educationYears,
     required this.mocaSections,
     required this.simsSections,
+    this.mocaTotalOverride,
+    this.mocaMaxOverride,
   });
 
   // ---- MoCA Calculations ----
 
-  /// Raw MoCA score before education adjustment
+  /// Raw Mini MoCA score before any override
   int get mocaRawScore =>
       mocaSections.fold(0, (sum, s) => sum + s.pointsScored);
 
-  /// +1 point if patient has 12 or fewer years of education
+  /// Kept for compatibility with the existing screen.
+  /// Mini MoCA does not use this the same way the old full MoCA did.
   int get educationAdjustment => educationYears <= 12 ? 1 : 0;
 
-  /// Final MoCA score (capped at 30)
+  /// Final Mini MoCA score.
+  /// If Firebase summary provides a stored total, prefer that.
   int get mocaTotalScore {
-    int total = mocaRawScore + educationAdjustment;
-    return total > 30 ? 30 : total;
+    if (mocaTotalOverride != null) return mocaTotalOverride!;
+
+    int total = mocaRawScore;
+    final max = mocaMaxScore;
+    return total > max ? max : total;
   }
 
-  /// Maximum possible MoCA score
-  int get mocaMaxScore => 30;
+  /// Maximum possible Mini MoCA score
+  int get mocaMaxScore => mocaMaxOverride ?? 15;
 
-  /// MoCA is generally "normal" at 26+
+  /// Mini MoCA is generally considered "normal" at 12+
   String get mocaStatus {
-    if (mocaTotalScore >= 26) return 'Normal';
-    if (mocaTotalScore >= 18) return 'Mild Concern';
+    if (mocaTotalScore >= 12) return 'Normal';
+    if (mocaTotalScore >= 8) return 'Mild Concern';
     return 'Needs Review';
   }
 

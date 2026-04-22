@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:projectmercury/models/moca_result.dart';
-import 'package:projectmercury/data/mock_results.dart';
-
+import 'package:projectmercury/services/results_service.dart';
 /// -------------------------------------------------------
 /// VESTA Results Screen
 /// -------------------------------------------------------
@@ -13,62 +12,120 @@ import 'package:projectmercury/data/mock_results.dart';
 class ResultsScreen extends StatelessWidget {
   const ResultsScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    final result = getMockResult();
+@override
+Widget build(BuildContext context) {
+  final resultsService = ResultsService();
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
-        elevation: 0,
-        title: const Text(
-          'Your Results',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+  return FutureBuilder<VestaAssessmentResult>(
+    future: resultsService.getCurrentUserResults(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Scaffold(
+          backgroundColor: Color(0xFF1A1A2E),
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      if (snapshot.hasError) {
+        return Scaffold(
+          backgroundColor: const Color(0xFF1A1A2E),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF16213E),
+            title: const Text('Your Results'),
+            centerTitle: true,
+          ),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Could not load results.\n${snapshot.error}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      if (!snapshot.hasData) {
+        return Scaffold(
+          backgroundColor: const Color(0xFF1A1A2E),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF16213E),
+            title: const Text('Your Results'),
+            centerTitle: true,
+          ),
+          body: const Center(
+            child: Text(
+              'No results found yet.',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+              ),
+            ),
+          ),
+        );
+      }
+
+      final result = snapshot.data!;
+
+      return Scaffold(
+        backgroundColor: const Color(0xFF1A1A2E),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF16213E),
+          elevation: 0,
+          title: const Text(
+            'Your Results',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildGreeting(result),
+                const SizedBox(height: 24),
+                _buildMocaScoreCard(result),
+                const SizedBox(height: 24),
+                _buildSectionHeader('Mini MoCA Breakdown'),
+                const SizedBox(height: 12),
+                ...result.mocaSections.map(
+                  (section) => _buildMocaSectionTile(section),
+                ),
+                const SizedBox(height: 32),
+                _buildSimsScoreCard(result),
+                const SizedBox(height: 24),
+                _buildSectionHeader('Financial & Life Skills Breakdown'),
+                const SizedBox(height: 12),
+                ...result.simsSections.map(
+                  (section) => _buildSimsSectionTile(section),
+                ),
+                const SizedBox(height: 32),
+                const SizedBox(height: 16),
+                _buildNextStepsCard(),
+                const SizedBox(height: 32),
+                _buildDoneButton(context),
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildGreeting(result),
-              const SizedBox(height: 24),
-              _buildMocaScoreCard(result),
-              const SizedBox(height: 24),
-              _buildSectionHeader('Cognitive Assessment Breakdown'),
-              const SizedBox(height: 12),
-              ...result.mocaSections.map(
-                (section) => _buildMocaSectionTile(section),
-              ),
-              const SizedBox(height: 32),
-              _buildSimsScoreCard(result),
-              const SizedBox(height: 24),
-              _buildSectionHeader('Financial & Life Skills Breakdown'),
-              const SizedBox(height: 12),
-              ...result.simsSections.map(
-                (section) => _buildSimsSectionTile(section),
-              ),
-              const SizedBox(height: 32),
-              if (result.educationAdjustment > 0)
-                _buildEducationNote(),
-              const SizedBox(height: 16),
-              _buildNextStepsCard(),
-              const SizedBox(height: 32),
-              _buildDoneButton(context),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   Widget _buildGreeting(VestaAssessmentResult result) {
     String formattedDate =

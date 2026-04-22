@@ -5,7 +5,10 @@ class FirestorePath {
   static String users() => 'users';
   static String user() => 'users/${locator.get<AuthMethods>().uid}';
   static String specUser(String id) => 'users/$id';
-
+  
+  static String sessionSummary(String uid, int session) =>
+      'sessionSummaries/${uid}_$session';
+      
   static String transactions() =>
       'users/${locator.get<AuthMethods>().uid}/transactions';
   static String transaction(String transactionId) =>
