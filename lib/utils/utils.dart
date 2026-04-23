@@ -393,7 +393,7 @@ Widget yesOrNo(
           icon: const Icon(Icons.close, size: 32, color: Colors.white),
           label: Text(
             noLabel,
-            style: const TextStyle(fontSize: 18,color: Colors.white),
+            style: const TextStyle(fontSize: 18, color: Colors.white),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red[700],
@@ -420,7 +420,7 @@ Widget yesOrNo(
           icon: const Icon(Icons.check, size: 32, color: Colors.white),
           label: Text(
             yesLabel,
-            style: const TextStyle(fontSize: 18,color: Colors.white),
+            style: const TextStyle(fontSize: 18, color: Colors.white),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green[700],
