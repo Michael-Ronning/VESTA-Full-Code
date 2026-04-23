@@ -34,10 +34,20 @@ class FirstTimeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Welcome'),
-        centerTitle: true,
-      ),
+appBar: AppBar(
+  backgroundColor: const Color(0xFFFF5A5A),
+  foregroundColor: Colors.white,
+  elevation: 0,
+  title: const Text(
+    'Welcome',
+    style: TextStyle(
+      fontSize: 22,
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+    ),
+  ),
+  centerTitle: true,
+),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(

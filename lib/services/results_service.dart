@@ -71,29 +71,32 @@ class ResultsService {
     final int mocaMax =
         _toInt(latestMoca?['max']) == 0 ? 12 : _toInt(latestMoca?['max']);
 
-    final int fluency = _toInt(latestMoca?['fluency']);
+    final int fluencyRaw = _toInt(latestMoca?['fluency']);
     final int recall = _toInt(latestMoca?['recall']);
     final int orientation = _toInt(latestMoca?['orientation']);
 
+    final int fluencyMax = mocaMax == 15 ? 4 : 1;
+    final int fluency = _clamp(fluencyRaw, 0, fluencyMax);
+
     final mocaSections = <MocaSectionResult>[
-      MocaSectionResult(
-        sectionName: 'Fluency',
-        friendlyName: 'Verbal Fluency',
-        pointsScored: _clamp(fluency, 0, 1),
-        maxPoints: 1,
-        description:
+     MocaSectionResult(
+       sectionName: 'Fluency',
+       friendlyName: 'Verbal Fluency',
+       pointsScored: fluency,
+       maxPoints: fluencyMax,
+       description:
             'How many words you generated beginning with the required letter.',
       ),
-      MocaSectionResult(
-        sectionName: 'Delayed Recall',
+     MocaSectionResult(
+       sectionName: 'Delayed Recall',
         friendlyName: 'Delayed Recall',
         pointsScored: _clamp(recall, 0, 5),
         maxPoints: 5,
-        description: 'How many target words you recalled without cues.',
+       description: 'How many target words you recalled without cues.',
       ),
       MocaSectionResult(
         sectionName: 'Orientation',
-        friendlyName: 'Orientation',
+       friendlyName: 'Orientation',
         pointsScored: _clamp(orientation, 0, 6),
         maxPoints: 6,
         description:

@@ -1862,7 +1862,7 @@ Room kitchen = Room(
     // K11
     Slot(
       id: 'K11',
-      order: 6,
+      order: 4,
       icon: 'OUTLINE_box',
       left: 200,
       right: 230,
@@ -1908,7 +1908,7 @@ Room kitchen = Room(
     // K8
     Slot(
       id: 'K8',
-      order: 7,
+      order: 5,
       icon: 'OUTLINE_box',
       left: 48,
       right: 95,
@@ -2007,7 +2007,7 @@ Room kitchen = Room(
     // K10
     Slot(
       id: 'K10',
-      order: 8,
+      order: 6,
       icon: 'OUTLINE_box',
       left: 30,
       right: 10,
@@ -2056,7 +2056,7 @@ Room kitchen = Room(
     // K3
     Slot(
       id: 'K3',
-      order: 9,
+      order: 7,
       icon: 'OUTLINE_box',
       left: 132,
       right: 62,
@@ -3009,28 +3009,22 @@ String matchingIdwithDoc(id) {
     case 'Ba4':
       return 'Ba1';
 
-    case 'K1':
-      return 'K2';
-    case 'K2':
-      return 'K3';
-    case 'K3':
-      return 'K4';
-    case 'K4':
-      return 'K5';
-    case 'K5':
-      return 'K6';
-    case 'K6':
-      return 'K7';
-    case 'K7':
-      return 'K8';
-    case 'K8':
-      return 'K9';
-    case 'K9':
-      return 'K10';
-    case 'K10':
-      return 'K11';
-    case 'K11':
-      return 'K1';
+case 'K1':
+  return 'K4';
+case 'K4':
+  return 'K2';
+case 'K2':
+  return 'K6';
+case 'K6':
+  return 'K11';
+case 'K11':
+  return 'K8';
+case 'K8':
+  return 'K10';
+case 'K10':
+  return 'K3';
+case 'K3':
+  return 'K1';
 
     case 'D1':
       return 'D2';

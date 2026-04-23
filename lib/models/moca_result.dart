@@ -89,11 +89,12 @@ class VestaAssessmentResult {
   /// Maximum possible Mini MoCA score
   int get mocaMaxScore => mocaMaxOverride ?? 15;
 
-  /// Mini MoCA is generally considered "normal" at 12+
+  /// User-facing screening interpretation
+  /// User-facing screening interpretation
   String get mocaStatus {
-    if (mocaTotalScore >= 12) return 'Normal';
-    if (mocaTotalScore >= 8) return 'Mild Concern';
-    return 'Needs Review';
+    if (mocaTotalScore >= 12) return 'Within Expected Range';
+    if (mocaTotalScore >= 8) return 'Follow-Up Recommended';
+    return 'Additional Review Recommended';
   }
 
   // ---- SIMS Calculations ----

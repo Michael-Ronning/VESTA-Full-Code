@@ -75,20 +75,22 @@ Widget build(BuildContext context) {
       final result = snapshot.data!;
 
       return Scaffold(
-        backgroundColor: const Color(0xFF1A1A2E),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF16213E),
-          elevation: 0,
-          title: const Text(
-            'Your Results',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          centerTitle: true,
-        ),
+            backgroundColor: const Color(0xFF1A1A2E),
+           appBar: AppBar(
+      backgroundColor: const Color(0xFF16213E),
+     foregroundColor: Colors.white,
+     iconTheme: const IconThemeData(color: Colors.white),
+     elevation: 0,
+     title: const Text(
+       'Your Results',
+       style: TextStyle(
+         fontSize: 24,
+         fontWeight: FontWeight.bold,
+         color: Colors.white,
+       ),
+      ),
+     centerTitle: true,
+    ),
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -553,40 +555,44 @@ Widget build(BuildContext context) {
   }
 
   Color _getMocaStatusColor(String status) {
-    switch (status) {
-      case 'Normal':
-        return const Color(0xFF4CAF50);
-      case 'Mild Concern':
-        return const Color(0xFFFFC107);
-      default:
-        return const Color(0xFFFF7043);
-    }
+  switch (status) {
+    case 'Within Expected Range':
+      return const Color(0xFF4CAF50);
+    case 'Follow-Up Recommended':
+      return const Color(0xFFFFC107);
+    case 'Additional Review Recommended':
+      return const Color(0xFFFF7043);
+    default:
+      return const Color(0xFF64B5F6);
   }
+}
 
   Color _getSimsStatusColor(String status) {
-    switch (status) {
-      case 'Strong':
-        return const Color(0xFF4CAF50);
-      case 'Moderate':
-        return const Color(0xFFFFC107);
-      default:
-        return const Color(0xFFFF7043);
-    }
+  switch (status) {
+    case 'Strong':
+      return const Color(0xFF4CAF50);
+    case 'Moderate':
+      return const Color(0xFFFFC107);
+    case 'Needs Support':
+      return const Color(0xFFFF7043);
+    default:
+      return const Color(0xFF64B5F6);
   }
+}
 
   String _getMocaExplanation(String status) {
     switch (status) {
-      case 'Normal':
-        return 'Your cognitive abilities are within the expected range. '
-            'Keep staying active and engaged!';
-      case 'Mild Concern':
-        return 'Some areas showed room for improvement. '
-            'This does not mean anything is wrong — '
-            'your provider can discuss this with you.';
+      case 'Within Expected Range':
+        return 'Your screening result was within the expected range.';
+     case 'Follow-Up Recommended':
+       return 'This screening suggests that additional follow-up may be helpful. '
+            'This is a screening result and not a diagnosis.';
+     case 'Additional Review Recommended':
+        return 'This screening suggests that further review is recommended. '
+            'Please discuss these results with your healthcare provider.';
       default:
-        return 'We recommend discussing these results '
-            'with your healthcare provider for guidance.';
-    }
+        return 'Your provider can help explain these results and next steps.';
+   }
   }
 
   String _getSimsExplanation(String status) {

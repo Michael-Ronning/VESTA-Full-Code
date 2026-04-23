@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:projectmercury/resources/firestore_methods.dart';
 import 'package:projectmercury/resources/locator.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:projectmercury/screens/first_time_screen.dart';
 
 enum _DigitSpanPhase {
   forwardReady,
@@ -387,6 +388,9 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             mocaMaxScore: _mocaMaxScore,
             normalCutoff: _normalCutoff,
           );
+      await locator.get<FirestoreMethods>().flushBufferedWrites(
+      reason: 'moca_completed',
+);
       if (!mounted) {
         return;
       }
@@ -1764,7 +1768,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     return Column(
       children: [
         const Text(
-          'MoCA-22 Test Results',
+          'Mini-MoCA Test Results',
           style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 24),
@@ -1804,76 +1808,110 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                 ),
               ),
               const SizedBox(height: 40),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _currentSection = 0;
-                    _examComplete = false;
-                    // Reset all state variables here
-                    _totalScore = 0;
-                    fwdInput.clear();
-                    fwdOk = false;
-                    bwdInput.clear();
-                    bwdOk = false;
-                    bwdChecked = false;
-                    _digitSpanTimer?.cancel();
-                    _digitSpanPhase = _DigitSpanPhase.forwardReady;
-                    _digitBeingShown = null;
-                    _digitDisplayIndex = 0;
-                    vigIdx = 0;
-                    vigErrs = 0;
-                    vigMiss = 0;
-                    vigDone = false;
-                    vigStarted = false;
-                    _vigTapRegisteredForCurrentLetter = false;
-                    vigTimer?.cancel();
-                    memoryTimer?.cancel();
-                    _memoryPhase = _MemoryPhase.firstIntro;
-                    memoryWordIndex = -1;
-                    memoryShowingGap = false;
-                    s7answers.clear();
-                    s7pts = 0;
-                    _s7Controller.clear();
-                    sentencePts = 0;
-                    _speechToText.stop();
-                    _speechError = null;
-                    _isListening = false;
-                    _activeSentenceIndex = null;
-                    _sentenceTranscripts = List<String>.filled(
-                        sentences.length, '',
-                        growable: false);
-                    _fluencyController.clear();
-                    fluencyTmr?.cancel();
-                    fluencyList.clear();
-                    fluencyActive = false;
-                    timeLeft = 60;
-                    abstractInputs = ['', '', ''];
-                    _abstractionStep = 0;
-                    _showAbstractionExampleInstruction = false;
-                    _abstractionController.clear();
-                    abstractPts = 0;
-                    recallInputs.clear();
-                    _recallController.clear();
-                    recallPts = 0;
-                    orientation['date'] = '';
-                    orientation['month'] = '';
-                    orientation['year'] = '';
-                    orientation['day'] = '';
-                    orientation['place'] = '';
-                    orientation['city'] = '';
-                    orientPts = 0;
-                  });
-                },
-                child: const Row(
-                  children: [
-                    Icon(Icons.refresh,
-                        color: Color.fromARGB(255, 97, 83, 224)),
-                    SizedBox(width: 8),
-                    Text('Start New Exam',
-                        style: TextStyle(color: Colors.white)),
-                  ],
-                ),
-              ),
+              SizedBox(
+  width: double.infinity,
+  child: ElevatedButton.icon(
+    onPressed: () {
+      setState(() {
+        _currentSection = 0;
+        _examComplete = false;
+        _totalScore = 0;
+        fwdInput.clear();
+        fwdOk = false;
+        bwdInput.clear();
+        bwdOk = false;
+        bwdChecked = false;
+        _digitSpanTimer?.cancel();
+        _digitSpanPhase = _DigitSpanPhase.forwardReady;
+        _digitBeingShown = null;
+        _digitDisplayIndex = 0;
+        vigIdx = 0;
+        vigErrs = 0;
+        vigMiss = 0;
+        vigDone = false;
+        vigStarted = false;
+        _vigTapRegisteredForCurrentLetter = false;
+        vigTimer?.cancel();
+        memoryTimer?.cancel();
+        _memoryPhase = _MemoryPhase.firstIntro;
+        memoryWordIndex = -1;
+        memoryShowingGap = false;
+        s7answers.clear();
+        s7pts = 0;
+        _s7Controller.clear();
+        sentencePts = 0;
+        _speechToText.stop();
+        _speechError = null;
+        _isListening = false;
+        _activeSentenceIndex = null;
+        _sentenceTranscripts =
+            List<String>.filled(sentences.length, '', growable: false);
+        _fluencyController.clear();
+        fluencyTmr?.cancel();
+        fluencyList.clear();
+        fluencyActive = false;
+        timeLeft = 60;
+        abstractInputs = ['', '', ''];
+        _abstractionStep = 0;
+        _showAbstractionExampleInstruction = false;
+        _abstractionController.clear();
+        abstractPts = 0;
+        recallInputs.clear();
+        _recallController.clear();
+        recallPts = 0;
+        orientation['date'] = '';
+        orientation['month'] = '';
+        orientation['year'] = '';
+        orientation['day'] = '';
+        orientation['place'] = '';
+        orientation['city'] = '';
+        orientPts = 0;
+      });
+    },
+    icon: const Icon(Icons.refresh),
+    label: const Text('Take Exam Again'),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Colors.blue,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      textStyle: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+  ),
+),
+const SizedBox(height: 12),
+SizedBox(
+  width: double.infinity,
+  child: ElevatedButton.icon(
+    onPressed: () {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => const FirstTimeScreen(),
+        ),
+        (route) => false,
+      );
+    },
+    icon: const Icon(Icons.home),
+    label: const Text('Back to Menu'),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Colors.green,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      textStyle: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+  ),
+),
             ],
           ),
         ),
@@ -1923,7 +1961,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MoCA-22 Cognitive Assessment'),
+        title: const Text('Mini-MoCA Cognitive Assessment'),
         backgroundColor: Colors.blue[700],
       ),
       body: _examComplete
