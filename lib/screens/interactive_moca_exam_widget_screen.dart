@@ -98,6 +98,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
   int timeLeft = 60;
   Timer? fluencyTmr;
   bool fluencyActive = false;
+  String? _fluencyError;
   final TextEditingController _fluencyController = TextEditingController();
   final FocusNode _fluencyFocus = FocusNode();
 
@@ -1442,11 +1443,15 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                   OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               filled: true,
               fillColor: Colors.white,
+              errorText: _fluencyError,
             ),
             style: const TextStyle(fontSize: 20),
             onSubmitted: (w) {
-              if (w.isNotEmpty && fluencyActive) {
-                setState(() => fluencyList.add(w));
+              if (fluencyActive) {
+                final isValid = _validateFluencyWord(w);
+                if (isValid) {
+                  setState(() => fluencyList.add(w.trim()));
+                }
                 _fluencyController.clear();
                 FocusScope.of(context).requestFocus(_fluencyFocus);
               }
@@ -1670,6 +1675,31 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     setState(() => recallPts = pts);
   }
 
+  bool _validateFluencyWord(String word) {
+    final trimmed = word.trim();
+
+    if (trimmed.isEmpty) {
+      setState(() => _fluencyError = 'Word cannot be empty.');
+      return false;
+    }
+
+    if (!trimmed.toUpperCase().startsWith('F')) {
+      setState(
+          () => _fluencyError = 'Word must start with "F".');
+      return false;
+    }
+
+    final upperWord = trimmed.toUpperCase();
+    if (fluencyList.any((w) => w.toUpperCase() == upperWord)) {
+      setState(
+          () => _fluencyError = 'Word already entered.');
+      return false;
+    }
+
+    setState(() => _fluencyError = null);
+    return true;
+  }
+
   Widget _orientationSection() {
     final fields = ['date', 'month', 'year', 'day', 'place', 'city'];
     final labels = ['Date', 'Month', 'Year', 'Day of week', 'Place', 'City'];
@@ -1715,14 +1745,22 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
 
     if (orientation['date']?.trim() == now.day.toString()) pts++;
     if (orientation['month']?.trim().toLowerCase() ==
-        _getMonthName(now.month).toLowerCase()) pts++;
+        _getMonthName(now.month).toLowerCase()) {
+      pts++;
+    }
     if (orientation['year']?.trim() == now.year.toString()) pts++;
     if (orientation['day']?.trim().toLowerCase() ==
-        _getDayName(now.weekday).toLowerCase()) pts++;
+        _getDayName(now.weekday).toLowerCase()) {
+      pts++;
+    }
     if (orientation['place']?.trim().toUpperCase() ==
-        _expectedOrientationPlace.toUpperCase()) pts++;
+        _expectedOrientationPlace.toUpperCase()) {
+      pts++;
+    }
     if (orientation['city']?.trim().toLowerCase() ==
-        _expectedOrientationCity.toLowerCase()) pts++;
+        _expectedOrientationCity.toLowerCase()) {
+      pts++;
+    }
 
     setState(() => orientPts = pts);
   }

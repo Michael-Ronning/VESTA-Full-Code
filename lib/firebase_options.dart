@@ -27,10 +27,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.macOS:
         return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -67,7 +64,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '205829397512',
     projectId: 'project-mercury-prototype',
     storageBucket: 'project-mercury-prototype.appspot.com',
-    iosClientId: '205829397512-b11qoc4cm5mlk63n5pmulqp1a7r8226u.apps.googleusercontent.com',
     iosBundleId: 'com.example.projectmercury',
   );
 
@@ -77,7 +73,17 @@ class DefaultFirebaseOptions {
     messagingSenderId: '205829397512',
     projectId: 'project-mercury-prototype',
     storageBucket: 'project-mercury-prototype.appspot.com',
-    iosClientId: '205829397512-b11qoc4cm5mlk63n5pmulqp1a7r8226u.apps.googleusercontent.com',
     iosBundleId: 'com.example.projectmercury',
   );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyAp8RwsvTU9Jro4NGllXpXsMuFLPSeNqlg',
+    appId: '1:205829397512:web:5dcb8f8e25b8cd220745bd',
+    messagingSenderId: '205829397512',
+    projectId: 'project-mercury-prototype',
+    authDomain: 'project-mercury-prototype.firebaseapp.com',
+    storageBucket: 'project-mercury-prototype.appspot.com',
+    measurementId: 'G-C1RB06RN9P',
+  );
+
 }
