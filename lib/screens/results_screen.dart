@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:projectmercury/models/moca_result.dart';
 import 'package:projectmercury/services/results_service.dart';
+import 'package:projectmercury/services/pdf_service.dart';
 /// -------------------------------------------------------
 /// VESTA Results Screen
 /// -------------------------------------------------------
@@ -525,7 +526,23 @@ Widget build(BuildContext context) {
       ),
     );
   }
-
+  Widget _buildDownloadButton(
+  BuildContext context,
+  VestaAssessmentResult result,
+) {
+  return SizedBox(
+    height: 60,
+    child: ElevatedButton(
+      onPressed: () async {
+        await PdfService.generatePdf(context, result);
+      },
+      child: const Text(
+        'Download PDF',
+        style: TextStyle(fontSize: 20),
+      ),
+    ),
+  );
+}
   Widget _buildDoneButton(BuildContext context) {
     return SizedBox(
       height: 60,
@@ -609,3 +626,15 @@ Widget build(BuildContext context) {
     return const Color(0xFFFF7043);
   }
 }
+ElevatedButton(
+  onPressed: () async {
+    await PdfService.generatePdf(context, result);
+  },
+  child: const Text('Download PDF'),
+)
+ElevatedButton(
+  onPressed: () async {
+    await PdfService.emailPdf(context, result);
+  },
+  child: const Text('Email PDF'),
+)
