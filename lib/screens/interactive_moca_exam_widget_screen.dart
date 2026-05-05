@@ -34,6 +34,17 @@ class InteractiveMoCAExamWidget extends StatefulWidget {
 }
 
 class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
+
+  static const Color _appPrimary = Color(0xFFFF5A5A);
+  static const Color _appPrimaryDark = Color(0xFFE14B4B);
+  static const Color _appPrimaryLight = Color(0xFFFFECEC);
+  static const Color _cardBg = Colors.white;
+  static const Color _pageBg = Color(0xFFFFF7F7);
+  static const Color _textDark = Color(0xFF222222);
+  static const Color _textMuted = Color(0xFF666666);
+
+
+
   static const int _sectionCount = 4;
   static const int _mocaMaxScore = 12;
   static const int _normalCutoff = 10;
@@ -444,7 +455,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
       child: ElevatedButton(
         onPressed: active ? onTap : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: bg ?? Colors.blue,
+          backgroundColor: bg ?? _appPrimary,
           foregroundColor: Colors.white,
           disabledBackgroundColor: Colors.grey[300],
           textStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -528,9 +539,9 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             width: double.infinity,
             padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
-              color: Colors.blue[100],
+              color: _appPrimaryLight,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue, width: 2),
+              border: Border.all(color: _appPrimary, width: 2),
             ),
             child: Text(
               memoryShowingGap ? '' : memWords[memoryWordIndex],
@@ -549,9 +560,9 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.green[100],
+              color: _appPrimaryLight,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.green, width: 2),
+              border: Border.all(color: _appPrimaryLight, width: 2),
             ),
             child: const Text(
               'Say as many remembered words as you can out loud now.',
@@ -567,7 +578,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                 _memoryPhase = _MemoryPhase.secondIntro;
               });
             },
-            bg: Colors.blue,
+            bg: _appPrimary,
             ico: Icons.arrow_forward,
           ),
         ] else if (_memoryPhase == _MemoryPhase.secondIntro) ...[
@@ -586,9 +597,9 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.green[100],
+              color: _appPrimaryLight,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.green, width: 2),
+              border: Border.all(color: _appPrimary, width: 2),
             ),
             child: const Text(
               'Please say the remembered words out loud now.',
@@ -604,16 +615,16 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                 _memoryPhase = _MemoryPhase.finalReminder;
               });
             },
-            bg: Colors.blue,
+            bg: _appPrimary,
             ico: Icons.arrow_forward,
           ),
         ] else if (_memoryPhase == _MemoryPhase.finalReminder) ...[
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.blue[100],
+              color: _appPrimaryLight,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue, width: 2),
+              border: Border.all(color: _appPrimary, width: 2),
             ),
             child: const Text(
               'You will be asked to recall those words again at the end of the test.',
@@ -625,7 +636,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           _largeBtn(
             'Continue to Next Section',
             () => _goNext(),
-            bg: Colors.green,
+            bg: _appPrimary,
             ico: Icons.arrow_forward,
           ),
         ],
@@ -691,7 +702,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             title: 'Forward Entry',
             subtitle: 'Repeat the sequence in the same order.',
             input: fwdInput,
-            inputColor: Colors.blue,
+            inputColor: _appPrimary,
             onDigit: (digit) => setState(() => fwdInput.add(digit)),
             onBackspace: () {
               if (fwdInput.isNotEmpty) {
@@ -750,8 +761,8 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     final isShowing = _digitSpanPhase == _DigitSpanPhase.forwardShowing ||
         _digitSpanPhase == _DigitSpanPhase.backwardShowing;
     final isForward = _digitSpanPhase == _DigitSpanPhase.forwardShowing;
-    final bgColor = isForward ? Colors.blue[50] : Colors.purple[50];
-    final borderColor = isForward ? Colors.blue : Colors.purple;
+    final bgColor = isForward ? _appPrimaryLight : Colors.purple[50];
+    final borderColor = isForward ? _appPrimary : Colors.purple;
     final modeText = isForward ? 'Forward Sequence' : 'Backward Sequence';
 
     return Container(
@@ -842,7 +853,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           child: ElevatedButton(
             onPressed: onCheck,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
+              backgroundColor: _appPrimaryDark,
               foregroundColor: Colors.white,
               textStyle:
                   const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -997,9 +1008,9 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           Container(
             height: 200,
             decoration: BoxDecoration(
-              color: Colors.blue[50],
+              color: _appPrimaryLight,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue, width: 3),
+              border: Border.all(color: _appPrimary, width: 3),
             ),
             child: Center(
               child: AnimatedSwitcher(
@@ -1029,7 +1040,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.blue[100],
+              color: _appPrimaryLight,
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Column(
@@ -1039,7 +1050,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue,
+                    color: _appPrimary,
                   ),
                 ),
                 SizedBox(height: 12),
@@ -1136,7 +1147,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.blue[50],
+            color: _appPrimaryLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
@@ -1175,7 +1186,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             ],
           ),
           const SizedBox(height: 12),
-          _largeBtn('Enter Answer', _submitSerial7Answer, bg: Colors.blue),
+          _largeBtn('Enter Answer', _submitSerial7Answer, bg: _appPrimary),
         ] else ...[
           Container(
             width: double.infinity,
@@ -1183,7 +1194,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             decoration: BoxDecoration(
               color: Colors.green[100],
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.green, width: 2),
+              border: Border.all(color: _appPrimaryDark, width: 2),
             ),
             child: const Text(
               'Serial 7 sequence complete.',
@@ -1201,7 +1212,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
               style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Colors.blue[800]),
+                  color: _appPrimary),
             ),
           ),
           const SizedBox(height: 8),
@@ -1297,7 +1308,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             decoration: BoxDecoration(
               color: Colors.orange[100],
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange, width: 1.5),
+              border: Border.all(color: _appPrimaryDark, width: 1.5),
             ),
             child: Text(
               _speechError!,
@@ -1320,7 +1331,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: _appPrimaryLight,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -1459,7 +1470,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.blue[50],
+            color: _appPrimaryLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -1500,9 +1511,9 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.blue[100],
+              color: _appPrimaryLight,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.blue, width: 2),
+              border: Border.all(color: _appPrimary, width: 2),
             ),
             child: const Text(
               'An orange and a banana are alike because they are both fruit. Let\'s try another one.',
@@ -1520,14 +1531,14 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                 _abstractionController.clear();
               });
             },
-            bg: Colors.blue,
+            bg: _appPrimary,
           ),
         ] else if (!isComplete) ...[
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.blue[50],
+              color: _appPrimaryLight,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -1558,7 +1569,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             onSubmitted: (_) => _submitAbstractionAnswer(),
           ),
           const SizedBox(height: 16),
-          _largeBtn('Enter Answer', _submitAbstractionAnswer, bg: Colors.blue),
+          _largeBtn('Enter Answer', _submitAbstractionAnswer, bg: _appPrimary),
         ] else ...[
           Container(
             width: double.infinity,
@@ -1566,7 +1577,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
             decoration: BoxDecoration(
               color: Colors.green[100],
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.green, width: 2),
+              border: Border.all(color: _appPrimaryDark, width: 2),
             ),
             child: const Text(
               'Abstraction prompts complete. Continue when ready.',
@@ -1773,16 +1784,14 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
         ),
         const SizedBox(height: 24),
         Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: _totalScore >= _normalCutoff
-                ? Colors.green[100]
-                : Colors.orange[100],
+         padding: const EdgeInsets.all(32),
+         decoration: BoxDecoration(
+           color: _appPrimaryLight,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-                color:
-                    _totalScore >= _normalCutoff ? Colors.green : Colors.orange,
-                width: 3),
+           border: Border.all(
+              color: _appPrimary,
+             width: 3,
+            ),
           ),
           child: Column(
             children: [
@@ -1791,9 +1800,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w600,
-                  color: _totalScore >= _normalCutoff
-                      ? Colors.green[900]
-                      : Colors.orange[900],
+                  color: _appPrimaryDark,
                 ),
               ),
               const SizedBox(height: 12),
@@ -1802,9 +1809,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
                 style: TextStyle(
                   fontSize: 56,
                   fontWeight: FontWeight.bold,
-                  color: _totalScore >= _normalCutoff
-                      ? Colors.green[900]
-                      : Colors.orange[900],
+                  color: _appPrimaryDark,
                 ),
               ),
               const SizedBox(height: 40),
@@ -1871,7 +1876,7 @@ class _InteractiveMoCAExamWidgetState extends State<InteractiveMoCAExamWidget> {
     icon: const Icon(Icons.refresh),
     label: const Text('Take Exam Again'),
     style: ElevatedButton.styleFrom(
-      backgroundColor: Colors.blue,
+      backgroundColor: _appPrimary,
       foregroundColor: Colors.white,
       padding: const EdgeInsets.symmetric(vertical: 16),
       textStyle: const TextStyle(
@@ -1899,7 +1904,7 @@ SizedBox(
     icon: const Icon(Icons.home),
     label: const Text('Back to Menu'),
     style: ElevatedButton.styleFrom(
-      backgroundColor: Colors.green,
+      backgroundColor: _appPrimaryDark,
       foregroundColor: Colors.white,
       padding: const EdgeInsets.symmetric(vertical: 16),
       textStyle: const TextStyle(
@@ -1917,10 +1922,11 @@ SizedBox(
         ),
         const SizedBox(height: 24),
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(8),
+           padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _appPrimaryLight,
+             borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _appPrimary.withOpacity(0.25)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1960,9 +1966,19 @@ SizedBox(
     ];
 
     return Scaffold(
+      backgroundColor: _pageBg,
       appBar: AppBar(
-        title: const Text('Mini-MoCA Cognitive Assessment'),
-        backgroundColor: Colors.blue[700],
+        title: const Text(
+         'Mini-MoCA Cognitive Assessment',
+         style: TextStyle(
+           color: Colors.white,
+           fontWeight: FontWeight.bold,
+         ),
+       ),
+        backgroundColor: _appPrimary,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
       ),
       body: _examComplete
           ? SingleChildScrollView(
@@ -1973,7 +1989,7 @@ SizedBox(
               children: [
                 Container(
                   padding: const EdgeInsets.all(16),
-                  color: Colors.blue[50],
+                  color: _appPrimaryLight,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -1999,7 +2015,7 @@ SizedBox(
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: const Color.fromARGB(220, 255, 255, 255),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.1),
@@ -2027,7 +2043,7 @@ SizedBox(
                                 ? (_isSavingResult ? 'Saving...' : 'Finish')
                                 : 'Next',
                             () => _goNext(),
-                            bg: Colors.green,
+                            bg: _appPrimary,
                             active: !_isSavingResult &&
                                 _canAdvanceFromCurrentSection(),
                             ico: _currentSection == _sectionCount - 1

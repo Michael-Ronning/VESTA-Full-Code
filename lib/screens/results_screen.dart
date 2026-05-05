@@ -11,6 +11,27 @@ import 'package:projectmercury/services/results_service.dart';
 
 class ResultsScreen extends StatelessWidget {
   const ResultsScreen({super.key});
+ 
+ 
+ static const Color _appPrimary = Color(0xFFFF5A5A);
+static const Color _appPrimaryDark = Color(0xFFE14B4B);
+static const Color _appPrimaryLight = Color(0xFFFFECEC);
+static const Color _pageBg = Color(0xFFFFF7F7);
+static const Color _cardBg = Color(0xFFFFFCFC);
+static const Color _textDark = Color(0xFF222222);
+static const Color _textMuted = Color(0xFF666666);
+static const Color _softBorder = Color(0xFFFFD6D6);
+
+static const Color _goodColor = Color(0xFF43A047);
+static const Color _warningColor = Color(0xFFE0A13B);
+static const Color _criticalColor = Color(0xFFD96C6C);
+
+static const Color _goodBg = Color(0xFFE8F5E9);
+static const Color _warningBg = Color(0xFFFFF8E1);
+static const Color _criticalBg = Color(0xFFFFEBEE);
+
+static const Color _barTrack = Color(0xFFF1E3E3);
+
 
 @override
 Widget build(BuildContext context) {
@@ -21,18 +42,20 @@ Widget build(BuildContext context) {
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
         return const Scaffold(
-          backgroundColor: Color(0xFF1A1A2E),
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
+         backgroundColor: _pageBg,
+         body: Center(
+           child: CircularProgressIndicator(
+              color: _appPrimary,
+            ),
+         ),
         );
       }
 
       if (snapshot.hasError) {
         return Scaffold(
-          backgroundColor: const Color(0xFF1A1A2E),
+          backgroundColor: _pageBg,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF16213E),
+            backgroundColor: _appPrimary,
             title: const Text('Your Results'),
             centerTitle: true,
           ),
@@ -43,7 +66,7 @@ Widget build(BuildContext context) {
                 'Could not load results.\n${snapshot.error}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: _textDark,
                   fontSize: 18,
                 ),
               ),
@@ -53,31 +76,33 @@ Widget build(BuildContext context) {
       }
 
       if (!snapshot.hasData) {
-        return Scaffold(
-          backgroundColor: const Color(0xFF1A1A2E),
-          appBar: AppBar(
-            backgroundColor: const Color(0xFF16213E),
-            title: const Text('Your Results'),
-            centerTitle: true,
-          ),
-          body: const Center(
-            child: Text(
-              'No results found yet.',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-              ),
-            ),
-          ),
-        );
-      }
+         return Scaffold(
+           backgroundColor: _pageBg,
+           appBar: AppBar(
+              backgroundColor: _appPrimary,
+              foregroundColor: Colors.white,
+             iconTheme: const IconThemeData(color: Colors.white),
+             title: const Text('Your Results'),
+              centerTitle: true,
+           ),
+           body: const Center(
+             child: Text(
+               'No results found yet.',
+                style: TextStyle(
+                 color: _textDark,
+                 fontSize: 18,
+                ),
+             ),
+           ),
+         );
+        }
 
       final result = snapshot.data!;
 
       return Scaffold(
-            backgroundColor: const Color(0xFF1A1A2E),
+            backgroundColor: _pageBg,
            appBar: AppBar(
-      backgroundColor: const Color(0xFF16213E),
+      backgroundColor: _appPrimary,
      foregroundColor: Colors.white,
      iconTheme: const IconThemeData(color: Colors.white),
      elevation: 0,
@@ -141,7 +166,7 @@ Widget build(BuildContext context) {
           style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: _textDark,
           ),
         ),
         const SizedBox(height: 8),
@@ -149,7 +174,7 @@ Widget build(BuildContext context) {
           'Here are your results from $formattedDate.',
           style: const TextStyle(
             fontSize: 18,
-            color: Colors.white70,
+            color: _textMuted,
           ),
         ),
         const SizedBox(height: 4),
@@ -157,7 +182,7 @@ Widget build(BuildContext context) {
           'A detailed report will also be sent to your email.',
           style: TextStyle(
             fontSize: 16,
-            color: Colors.white54,
+            color: _textMuted,
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -167,13 +192,21 @@ Widget build(BuildContext context) {
 
   Widget _buildMocaScoreCard(VestaAssessmentResult result) {
     Color statusColor = _getMocaStatusColor(result.mocaStatus);
-
+    Color statusBg = _getMocaStatusBg(result.mocaStatus);
+    
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: _cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: statusColor.withOpacity(0.5), width: 2),
+        border: Border.all(color: _softBorder, width: 2),
+       boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+       ],
       ),
       child: Column(
         children: [
@@ -181,7 +214,7 @@ Widget build(BuildContext context) {
             'Cognitive Score',
             style: TextStyle(
               fontSize: 20,
-              color: Colors.white70,
+              color: _textMuted,
             ),
           ),
           const SizedBox(height: 16),
@@ -190,7 +223,7 @@ Widget build(BuildContext context) {
             height: 140,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: statusColor, width: 6),
+              border: Border.all(color: statusColor, width: 5),
             ),
             child: Center(
               child: Column(
@@ -208,7 +241,7 @@ Widget build(BuildContext context) {
                     'out of ${result.mocaMaxScore}',
                     style: const TextStyle(
                       fontSize: 16,
-                      color: Colors.white54,
+                      color: _textMuted,
                     ),
                   ),
                 ],
@@ -219,8 +252,8 @@ Widget build(BuildContext context) {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(24),
+            color: statusBg,
+             borderRadius: BorderRadius.circular(24),
             ),
             child: Text(
               result.mocaStatus,
@@ -237,7 +270,7 @@ Widget build(BuildContext context) {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,
-              color: Colors.white60,
+              color: _textMuted,
               height: 1.4,
             ),
           ),
@@ -248,13 +281,20 @@ Widget build(BuildContext context) {
 
   Widget _buildSimsScoreCard(VestaAssessmentResult result) {
     Color statusColor = _getSimsStatusColor(result.simsStatus);
-
+  Color statusBg = _getSimsStatusBg(result.simsStatus);
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: statusColor.withOpacity(0.5), width: 2),
+       color: _cardBg,
+       borderRadius: BorderRadius.circular(16),
+       border: Border.all(color: _softBorder, width: 2),
+        boxShadow: [
+         BoxShadow(
+           color: Colors.black.withOpacity(0.05),
+           blurRadius: 10,
+            offset: const Offset(0, 4),
+         ),
+        ],
       ),
       child: Column(
         children: [
@@ -262,7 +302,7 @@ Widget build(BuildContext context) {
             'Life Skills Score',
             style: TextStyle(
               fontSize: 20,
-              color: Colors.white70,
+              color: _textMuted,
             ),
           ),
           const SizedBox(height: 16),
@@ -271,7 +311,7 @@ Widget build(BuildContext context) {
             height: 140,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: statusColor, width: 6),
+              border: Border.all(color: statusColor, width: 5),
             ),
             child: Center(
               child: Column(
@@ -289,7 +329,7 @@ Widget build(BuildContext context) {
                     'out of ${result.simsMaxScore}',
                     style: const TextStyle(
                       fontSize: 16,
-                      color: Colors.white54,
+                      color: _textMuted,
                     ),
                   ),
                 ],
@@ -300,8 +340,8 @@ Widget build(BuildContext context) {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(24),
+             color: statusBg,
+             borderRadius: BorderRadius.circular(24),
             ),
             child: Text(
               result.simsStatus,
@@ -318,7 +358,7 @@ Widget build(BuildContext context) {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,
-              color: Colors.white60,
+              color: _textMuted,
               height: 1.4,
             ),
           ),
@@ -333,7 +373,7 @@ Widget build(BuildContext context) {
       style: const TextStyle(
         fontSize: 22,
         fontWeight: FontWeight.bold,
-        color: Colors.white,
+        color: _textDark,
       ),
     );
   }
@@ -345,9 +385,17 @@ Widget build(BuildContext context) {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F2B47),
-        borderRadius: BorderRadius.circular(12),
-      ),
+         color: _cardBg,
+         borderRadius: BorderRadius.circular(12),
+         border: Border.all(color: _softBorder),
+         boxShadow: [
+           BoxShadow(
+             color: Colors.black.withOpacity(0.03),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+         ],
+        ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -360,7 +408,7 @@ Widget build(BuildContext context) {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: _textDark,
                   ),
                 ),
               ),
@@ -380,7 +428,7 @@ Widget build(BuildContext context) {
             child: LinearProgressIndicator(
               value: section.percentage,
               minHeight: 12,
-              backgroundColor: Colors.white12,
+              backgroundColor: _barTrack,
               valueColor: AlwaysStoppedAnimation<Color>(barColor),
             ),
           ),
@@ -389,7 +437,7 @@ Widget build(BuildContext context) {
             section.description,
             style: const TextStyle(
               fontSize: 15,
-              color: Colors.white54,
+              color: _textMuted,
               height: 1.3,
             ),
           ),
@@ -405,8 +453,16 @@ Widget build(BuildContext context) {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F2B47),
-        borderRadius: BorderRadius.circular(12),
+        color: _cardBg,
+       borderRadius: BorderRadius.circular(12),
+       border: Border.all(color: _softBorder),
+       boxShadow: [
+         BoxShadow(
+           color: Colors.black.withOpacity(0.03),
+           blurRadius: 6,
+           offset: const Offset(0, 2),
+          ),
+       ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,7 +476,7 @@ Widget build(BuildContext context) {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: _textDark,
                   ),
                 ),
               ),
@@ -440,7 +496,7 @@ Widget build(BuildContext context) {
             child: LinearProgressIndicator(
               value: section.percentage,
               minHeight: 12,
-              backgroundColor: Colors.white12,
+              backgroundColor: _barTrack,
               valueColor: AlwaysStoppedAnimation<Color>(barColor),
             ),
           ),
@@ -449,7 +505,7 @@ Widget build(BuildContext context) {
             section.description,
             style: const TextStyle(
               fontSize: 15,
-              color: Colors.white54,
+              color: _textMuted,
               height: 1.3,
             ),
           ),
@@ -459,55 +515,55 @@ Widget build(BuildContext context) {
   }
 
   Widget _buildEducationNote() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A1F47),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.4)),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.info_outline, color: Colors.deepPurpleAccent, size: 28),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Your cognitive score includes a 1-point '
-              'adjustment based on your education background. '
-              'This is standard practice.',
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.white60,
-                height: 1.3,
-              ),
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: _cardBg,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: _softBorder),
+    ),
+    child: const Row(
+      children: [
+        Icon(Icons.info_outline, color: _appPrimary, size: 28),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Your cognitive score includes a 1-point '
+            'adjustment based on your education background. '
+            'This is standard practice.',
+            style: TextStyle(
+              fontSize: 15,
+              color: _textMuted,
+              height: 1.3,
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildNextStepsCard() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: _cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+        border: Border.all(color: _softBorder),
       ),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.mail_outline, color: Colors.blueAccent, size: 28),
+              Icon(Icons.mail_outline, color: _appPrimary, size: 28),
               SizedBox(width: 12),
               Text(
                 'What Happens Next?',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: _textDark,
                 ),
               ),
             ],
@@ -519,7 +575,7 @@ Widget build(BuildContext context) {
             '• If you have questions, please contact your provider.',
             style: TextStyle(
               fontSize: 17,
-              color: Colors.white70,
+              color: _textMuted,
               height: 1.6,
             ),
           ),
@@ -528,7 +584,7 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _buildDoneButton(BuildContext context) {
+    Widget _buildDoneButton(BuildContext context) {
     return SizedBox(
       height: 60,
       child: ElevatedButton(
@@ -536,7 +592,7 @@ Widget build(BuildContext context) {
           Navigator.of(context).popUntil((route) => route.isFirst);
         },
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0F3460),
+          backgroundColor: _appPrimary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -555,44 +611,70 @@ Widget build(BuildContext context) {
   }
 
   Color _getMocaStatusColor(String status) {
-  switch (status) {
-    case 'Within Expected Range':
-      return const Color(0xFF4CAF50);
-    case 'Follow-Up Recommended':
-      return const Color(0xFFFFC107);
-    case 'Additional Review Recommended':
-      return const Color(0xFFFF7043);
-    default:
-      return const Color(0xFF64B5F6);
+    switch (status) {
+      case 'Within Expected Range':
+        return _goodColor;
+      case 'Follow-Up Recommended':
+        return _warningColor;
+      case 'Additional Review Recommended':
+        return _criticalColor;
+      default:
+        return _warningColor;
+    }
   }
-}
+
+  Color _getMocaStatusBg(String status) {
+    switch (status) {
+      case 'Within Expected Range':
+        return _goodBg;
+      case 'Follow-Up Recommended':
+        return _warningBg;
+      case 'Additional Review Recommended':
+        return _criticalBg;
+      default:
+        return _warningBg;
+    }
+  }
 
   Color _getSimsStatusColor(String status) {
-  switch (status) {
-    case 'Strong':
-      return const Color(0xFF4CAF50);
-    case 'Moderate':
-      return const Color(0xFFFFC107);
-    case 'Needs Support':
-      return const Color(0xFFFF7043);
-    default:
-      return const Color(0xFF64B5F6);
+    switch (status) {
+      case 'Strong':
+        return _goodColor;
+      case 'Moderate':
+        return _warningColor;
+      case 'Needs Support':
+        return _criticalColor;
+      default:
+        return _warningColor;
+    }
   }
-}
+
+  Color _getSimsStatusBg(String status) {
+    switch (status) {
+      case 'Strong':
+        return _goodBg;
+      case 'Moderate':
+        return _warningBg;
+      case 'Needs Support':
+        return _criticalBg;
+      default:
+        return _warningBg;
+    }
+  }
 
   String _getMocaExplanation(String status) {
     switch (status) {
       case 'Within Expected Range':
         return 'Your screening result was within the expected range.';
-     case 'Follow-Up Recommended':
-       return 'This screening suggests that additional follow-up may be helpful. '
+      case 'Follow-Up Recommended':
+        return 'This screening suggests that additional follow-up may be helpful. '
             'This is a screening result and not a diagnosis.';
-     case 'Additional Review Recommended':
+      case 'Additional Review Recommended':
         return 'This screening suggests that further review is recommended. '
             'Please discuss these results with your healthcare provider.';
       default:
         return 'Your provider can help explain these results and next steps.';
-   }
+    }
   }
 
   String _getSimsExplanation(String status) {
@@ -610,8 +692,8 @@ Widget build(BuildContext context) {
   }
 
   Color _getBarColor(double percentage) {
-    if (percentage >= 0.80) return const Color(0xFF4CAF50);
-    if (percentage >= 0.60) return const Color(0xFFFFC107);
-    return const Color(0xFFFF7043);
+    if (percentage >= 0.85) return _goodColor;
+    if (percentage >= 0.60) return _warningColor;
+    return _criticalColor;
   }
 }
